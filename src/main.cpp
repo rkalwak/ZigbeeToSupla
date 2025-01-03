@@ -24,6 +24,8 @@ zb_device_params_t *joined_device;
 char zbd_model_name[64];
 void setup()
 {
+  Serial.begin(115200);
+    Serial.println("starting");
   pinMode(BUTTON_PIN, INPUT);
 
   zbGateway.onStatusNotification(sz_ias_zone_notification);
@@ -60,6 +62,7 @@ void loop()
     zbInit = false;
   }
 
+/*
   if (digitalRead(BUTTON_PIN) == LOW)
   { // Push button pressed
     // Key debounce handling
@@ -78,7 +81,7 @@ void loop()
     Zigbee.openNetwork(180);
   }
   delay(100);
-
+*/
   if (zbGateway.isNewDeviceJoined())
   {
 
