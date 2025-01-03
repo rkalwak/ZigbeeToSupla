@@ -112,6 +112,12 @@ void loop()
         zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE);
         esp_zb_lock_release();
       }
+      else if (strcmp(zbd_model_name, "TS0201")==0)
+      {
+         esp_zb_lock_acquire(portMAX_DELAY);
+        zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+        esp_zb_lock_release();
+      }
       else
         log_d("Unknown model %s, no binding is possible", zbd_model_name);
     }

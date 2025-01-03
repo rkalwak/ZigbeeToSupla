@@ -168,6 +168,7 @@ void ZigbeeGateway::zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attrib
   
   log_i("cluster_id %d ",cluster_id);
   log_i("attribute->id %d ", attribute->id);
+  log_i("attribute-value %d ", attribute->data.value);
 }
 
 void ZigbeeGateway::zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message) {
