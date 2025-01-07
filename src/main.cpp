@@ -1,7 +1,10 @@
 #include <Arduino.h>
 #include "ZigbeeGateway.h"
 
-#include "esp_coexist.h"
+//#include "esp_coexist.h"
+
+//#include "supla/sensor/general_purpose_measurement.h"
+//#include "supla/control/virtual_relay.h"
 #define GATEWAY_ENDPOINT_NUMBER 1
 
 #define BUTTON_PIN 9 // Boot button for C6/
@@ -22,20 +25,62 @@ bool zbInit = true;
 zb_device_params_t *gateway_device;
 zb_device_params_t *joined_device;
 char zbd_model_name[64];
+
+/*
+void addSuplaChannel(esp_zb_ieee_addr_t longAddress, uint16_t shortAddress, esp_zb_zcl_cluster_id_t clusterId)
+{
+
+  switch (clusterId)
+  {
+  case ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT:
+  {
+    auto sensor = new Supla::Sensor::GeneralPurposeMeasurement();
+    sensor->setDefaultUnitAfterValue("%");
+    sensor->setInitialCaption("Humidity");
+        // sensor->setValue();
+    break;
+  }
+
+  case ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT:
+  {
+    auto sensor = new Supla::Sensor::GeneralPurposeMeasurement();
+    sensor->setDefaultUnitAfterValue("C");
+    sensor->setInitialCaption("Temperature");
+    // sensor->setValue();
+    break;
+  }
+
+  case ESP_ZB_ZCL_CLUSTER_ID_ON_OFF:
+  {
+    auto relay = new Supla::Control::VirtualRelay();
+    relay->setInitialCaption("Power switch");
+    relay->setDefaultFunction(SUPLA_CHANNELFNC_POWERSWITCH);
+    
+    // relay->turnOff();
+    // relay->turnOn();
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+*/
+
 void setup()
 {
   Serial.begin(115200);
-    Serial.println("starting");
+  Serial.println("starting");
   pinMode(BUTTON_PIN, INPUT);
 
   zbGateway.onStatusNotification(sz_ias_zone_notification);
   zbGateway.setManufacturerAndModel("Espressif", "MyZigbeeGateway");
   zbGateway.allowMultipleBinding(true);
   Zigbee.addEndpoint(&zbGateway);
-
+  Serial.println("added endpoint");
   // Open network for 180 seconds after boot
   Zigbee.setRebootOpenNetwork(180);
-
+  Serial.println("set reboot");
   startTime = millis();
   printTime = millis();
   zbInit_delay = millis();
@@ -62,26 +107,26 @@ void loop()
     zbInit = false;
   }
 
-/*
-  if (digitalRead(BUTTON_PIN) == LOW)
-  { // Push button pressed
-    // Key debounce handling
-    delay(100);
+  /*
+    if (digitalRead(BUTTON_PIN) == LOW)
+    { // Push button pressed
+      // Key debounce handling
+      delay(100);
 
-    while (digitalRead(BUTTON_PIN) == LOW)
-    {
-      delay(50);
-      if ((millis() - startTime) > 3000)
+      while (digitalRead(BUTTON_PIN) == LOW)
       {
-        // If key pressed for more than 3secs, factory reset Zigbee and reboot
-        Serial.printf("Resetting Zigbee to factory settings, reboot.\n");
-        Zigbee.factoryReset();
+        delay(50);
+        if ((millis() - startTime) > 3000)
+        {
+          // If key pressed for more than 3secs, factory reset Zigbee and reboot
+          Serial.printf("Resetting Zigbee to factory settings, reboot.\n");
+          Zigbee.factoryReset();
+        }
       }
+      Zigbee.openNetwork(180);
     }
-    Zigbee.openNetwork(180);
-  }
-  delay(100);
-*/
+    delay(100);
+  */
   if (zbGateway.isNewDeviceJoined())
   {
 
@@ -104,6 +149,8 @@ void loop()
       {
         esp_zb_lock_acquire(portMAX_DELAY);
         zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+        //addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+
         esp_zb_lock_release();
       }
       else if (strcmp(zbd_model_name, "TS0203") == 0)
@@ -112,10 +159,19 @@ void loop()
         zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE);
         esp_zb_lock_release();
       }
-      else if (strcmp(zbd_model_name, "TS0201")==0)
+      else if (strcmp(zbd_model_name, "TS0201") == 0)
       {
-         esp_zb_lock_acquire(portMAX_DELAY);
+        esp_zb_lock_acquire(portMAX_DELAY);
         zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+        //addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+        //addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT);
+        esp_zb_lock_release();
+      }
+       else if (strcmp(zbd_model_name, "TS0001") == 0)
+      {
+        esp_zb_lock_acquire(portMAX_DELAY);
+        zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF);
+        //addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF);
         esp_zb_lock_release();
       }
       else
