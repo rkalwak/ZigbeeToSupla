@@ -97,7 +97,7 @@ void ZigbeeIASZone::findEndpoint(esp_zb_zdo_match_desc_req_param_t *param) {
   esp_zb_zdo_match_cluster(param, findCb, &_endpoint);
 }
 
-void ZigbeeIASZone::zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute) {
+void ZigbeeIASZone::zbAttributeRead(uint16_t cluster_id,const esp_zb_ieee_addr_t long_address,  const esp_zb_zcl_attribute_t *attribute) {
   
   
   log_i("cluster_id %d ",cluster_id);

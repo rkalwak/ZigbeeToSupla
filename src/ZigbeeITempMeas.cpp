@@ -108,17 +108,12 @@ void ZigbeeTempMeas::findEndpoint(esp_zb_zdo_match_desc_req_param_t *param)
   esp_zb_zdo_match_cluster(param, findCb, &_endpoint);
 }
 
-void ZigbeeTempMeas::zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute)
+void ZigbeeTempMeas::zbAttributeRead(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address,  const esp_zb_zcl_attribute_t *attribute)
 {
 
   log_i("cluster_id %d ", cluster_id);
   log_i("attribute->id %d ", attribute->id);
   log_i("attribute->data_type %d ", attribute->data.type);
-  log_i("attribute->value %d ", attribute->data.value);
-  // https://docs.espressif.com/projects/esp-zigbee-sdk/en/latest/esp32/api-reference/zcl/esp_zigbee_zcl_common.html#_CPPv422esp_zb_zcl_attr_type_t
-  if (attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_S16)
-  {
-  }
 }
 
 void ZigbeeTempMeas::zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message)

@@ -46,7 +46,7 @@ private:
   static void bindCb(esp_zb_zdp_status_t zdo_status, void *user_ctx);
   static void findCb(esp_zb_zdp_status_t zdo_status, uint16_t addr, uint8_t endpoint, void *user_ctx);
 
-  void zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute) override;
+  void zbAttributeRead(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address,  const esp_zb_zcl_attribute_t *attribute) override;
   void zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message) override;
 };
 

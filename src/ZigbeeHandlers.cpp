@@ -101,7 +101,7 @@ static esp_err_t zb_attribute_reporting_handler(const esp_zb_zcl_report_attr_mes
   {
     if (message->dst_endpoint == (*it)->getEndpoint())
     {
-      (*it)->zbAttributeRead(message->cluster, &message->attribute); // method zbAttributeRead must be implemented in specific EP class
+      (*it)->zbAttributeRead(message->cluster,  message->src_address.u.ieee_addr, &message->attribute); // method zbAttributeRead must be implemented in specific EP class
     }
   }
   return ESP_OK;
@@ -139,7 +139,7 @@ static esp_err_t zb_cmd_read_attr_resp_handler(const esp_zb_zcl_cmd_read_attr_re
           }
           else
           {
-            (*it)->zbAttributeRead(message->info.cluster, &variable->attribute); // method zbAttributeRead must be implemented in specific EP class
+            (*it)->zbAttributeRead(message->info.cluster, message->info.src_address.u.ieee_addr, &variable->attribute); // method zbAttributeRead must be implemented in specific EP class
           }
         }
         variable = variable->next;

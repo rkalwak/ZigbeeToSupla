@@ -82,6 +82,10 @@ void setIASZReporting(uint16_t min_interval, uint16_t max_interval);
     _on_config_recieve = callback;
   }
 
+  void onNewValueReceive(void (*callback)(uint16_t , const esp_zb_ieee_addr_t long_address,const esp_zb_zcl_attribute_t *)){
+    _on_new_value_receive=callback;
+  }
+
 private:
   // save instance of the class in order to use it in static functions
   static ZigbeeGateway *_instance;
@@ -93,13 +97,14 @@ private:
 
   void (*_on_status_notification)(int, uint8_t *);
   void (*_on_config_recieve)(float, float, float);
+  void (*_on_new_value_receive)(uint16_t, const esp_zb_ieee_addr_t long_address, const esp_zb_zcl_attribute_t *);
  
   void findEndpoint(esp_zb_zdo_match_desc_req_param_t *cmd_req);
 
   static void bindCb(esp_zb_zdp_status_t zdo_status, void *user_ctx);
   static void find_Cb(esp_zb_zdp_status_t zdo_status, uint16_t addr, uint8_t endpoint, void *user_ctx);
 
-  void zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute) override;
+  void zbAttributeRead(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address,  const esp_zb_zcl_attribute_t *attribute) override;
   void zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message) override;
   
   void addBoundDevice(zb_device_params_t *device) override;

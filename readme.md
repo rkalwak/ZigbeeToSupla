@@ -1,6 +1,6 @@
 # Environment configuration
 Go to :
-C:\Users\USER\.platformio\platforms\espressif32\boards
+C:\Users\USER\\.platformio\platforms\espressif32\boards
 Find file: esp32-c6-devkitc-1.json
 Ensure content to be:
 ```json

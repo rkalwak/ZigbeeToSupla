@@ -177,29 +177,13 @@ void ZigbeeGateway::printJoinedDevices()
   }
 }
 
-void ZigbeeGateway::zbAttributeRead(uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute)
+void ZigbeeGateway::zbAttributeRead(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address, const esp_zb_zcl_attribute_t *attribute)
 {
 
   log_i("cluster_id %d ", cluster_id);
   log_i("attribute->id %d ", attribute->id);
-  log_i("attribute-value %d ", attribute->data.value);
-  if (cluster_id == ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT)
-  {
-    if (attribute->id == ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_S16)
-    {
-      int16_t value = attribute->data.value ? *(int16_t *)attribute->data.value : 0;
-      log_i("zbAttributeRead temperature measurement %f", ((float)value) / 100);
-    }
-  }
-  if (cluster_id == ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT)
-  {
-    if (attribute->id == ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_U16)
-    {
-      int16_t value = attribute->data.value ? *(int16_t *)attribute->data.value : 0;
-      log_i(" data type %d", attribute->data.type);
-      log_i("zbAttributeRead humidity measurement %f", ((float)value) / 100);
-    }
-  }
+  log_i("attribute->data_type %d ", attribute->data.type);
+  _on_new_value_receive(cluster_id, long_address, attribute);
 }
 
 void ZigbeeGateway::zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message)
