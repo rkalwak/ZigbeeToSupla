@@ -5,11 +5,12 @@
 #include "supla/sensor/general_purpose_measurement.h"
 #include "supla/control/virtual_relay.h"
 #include "SuplaDevice.h"
+#include <string>
 #define GATEWAY_ENDPOINT_NUMBER 1
 
 #define BUTTON_PIN 9 // Boot button for C6/
 ZigbeeGateway zbGateway = ZigbeeGateway(GATEWAY_ENDPOINT_NUMBER);
-//SuplaGateway suplaGateway = SuplaGateway();
+// SuplaGateway suplaGateway = SuplaGateway();
 void sz_ias_zone_notification(int status, uint8_t *ieee_addr_64)
 {
   Serial.println("in sz_ias_zone_nitification");
@@ -25,37 +26,73 @@ bool zbInit = true;
 zb_device_params_t *gateway_device;
 zb_device_params_t *joined_device;
 char zbd_model_name[64];
-std::map<std::vector<uint8_t>, Supla::ChannelElement *> suplaChannels{};
+std::map<std::string, Supla::Sensor::GeneralPurposeMeasurement *> suplaChannels{};
+
+std::string longAddressAsString(const esp_zb_ieee_addr_t ieee_addr_64)
+{
+  // should be A4:C1:38:97:D0:A9:3C:8D
+  char buffer[24];
+  sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", ieee_addr_64[7], ieee_addr_64[6], ieee_addr_64[5], ieee_addr_64[4],
+          ieee_addr_64[3], ieee_addr_64[2], ieee_addr_64[1], ieee_addr_64[0]);
+  std::string longAddressString(buffer);
+  log_i("parsed address: %s", longAddressString.c_str());
+  Serial.print(buffer);
+  return longAddressString;
+}
+
+void displaySuplaChannels()
+{
+  log_i("displaySuplaChannels");
+  log_i("available channels: %d", suplaChannels.size());
+  std::map<std::string, Supla::Sensor::GeneralPurposeMeasurement *>::iterator it;
+  for (it = suplaChannels.begin(); it != suplaChannels.end(); it++)
+  {
+    log_i("Key: %s Value: %s", it->first.c_str(), it->second);
+  }
+  log_i("displayedSuplaChannels");
+}
+
 void onNewValueReceive(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address, const esp_zb_zcl_attribute_t *attribute)
 {
+  log_i("onNewValueReceive");
+  std::string longAddressString = longAddressAsString(long_address);
+
   if (cluster_id == ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT)
   {
     if (attribute->id == ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_S16)
     {
       int16_t value = attribute->data.value ? *(int16_t *)attribute->data.value : 0;
-      std::vector<uint8_t> address_vector({long_address[0], long_address[1],long_address[2],long_address[3],long_address[4],long_address[5],long_address[6],long_address[7] });
-      Supla::Sensor::GeneralPurposeMeasurement* sensor=(Supla::Sensor::GeneralPurposeMeasurement*) suplaChannels[address_vector];
-      sensor->setValue(((float)value) / 100);
-      log_i("zbAttributeRead temperature measurement %f", ((float)value) / 100);
+      displaySuplaChannels();
+      Supla::Sensor::GeneralPurposeMeasurement *sensor = (Supla::Sensor::GeneralPurposeMeasurement *)suplaChannels[longAddressString];
+      if (sensor != nullptr)
+      {
+
+        log_i("zbAttributeRead temperature measurement %f", ((float)value) / 100);
+        sensor->setValue(((float)value) / 100);
+      }
+      else
+      {
+        log_i("sensor not found");
+      }
     }
   }
+  /*
   if (cluster_id == ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT)
   {
     if (attribute->id == ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_U16)
     {
       int16_t value = attribute->data.value ? *(int16_t *)attribute->data.value : 0;
-      std::vector<uint8_t> address_vector({long_address[0], long_address[1],long_address[2],long_address[3],long_address[4],long_address[5],long_address[6],long_address[7] });
-      Supla::Sensor::GeneralPurposeMeasurement* sensor=(Supla::Sensor::GeneralPurposeMeasurement*) suplaChannels[address_vector];
+      Supla::Sensor::GeneralPurposeMeasurement *sensor = (Supla::Sensor::GeneralPurposeMeasurement *)suplaChannels[longAddressString];
       sensor->setValue(((double)value) / 100);
       log_i("zbAttributeRead humidity measurement %f", ((float)value) / 100);
     }
   }
+  */
 }
-
 
 void addSuplaChannel(esp_zb_ieee_addr_t longAddress, uint16_t shortAddress, esp_zb_zcl_cluster_id_t clusterId)
 {
-
+  std::string longAddressString = longAddressAsString(longAddress);
   switch (clusterId)
   {
   case ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT:
@@ -64,20 +101,24 @@ void addSuplaChannel(esp_zb_ieee_addr_t longAddress, uint16_t shortAddress, esp_
     sensor->setDefaultUnitAfterValue("%");
     sensor->setInitialCaption("Humidity");
     // sensor->setValue();
-    std::vector<uint8_t> address_vector({longAddress[0], longAddress[1],longAddress[2],longAddress[3],longAddress[4],longAddress[5],longAddress[6],longAddress[7] });
-    suplaChannels[address_vector] = sensor;
+    if (suplaChannels.count(longAddressString) ==0)
+      {
+        suplaChannels.insert({longAddressString, sensor});
+      }
     break;
   }
 
-  case ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT:
-  {
-    auto sensor = new Supla::Sensor::GeneralPurposeMeasurement();
-    sensor->setDefaultUnitAfterValue("C");
-    sensor->setInitialCaption("Temperature");
-    // sensor->setValue();
-    break;
-  }
-
+    /*
+      case ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT:
+      {
+        auto sensor = new Supla::Sensor::GeneralPurposeMeasurement();
+        sensor->setDefaultUnitAfterValue("C");
+        sensor->setInitialCaption("Temperature");
+        // sensor->setValue();
+        suplaChannels.insert({longAddressString, sensor});
+        break;
+      }
+    */
   case ESP_ZB_ZCL_CLUSTER_ID_ON_OFF:
   {
     auto relay = new Supla::Control::VirtualRelay();
@@ -138,7 +179,6 @@ static void Z2S_active_ep_req(esp_zb_zdp_status_t zdo_status, uint8_t ep_count, 
 
 uint16_t short_addr_req;
 
-
 void setup()
 {
   Serial.begin(115200);
@@ -152,7 +192,7 @@ void setup()
   Zigbee.addEndpoint(&zbGateway);
   Serial.println("added endpoint");
   // Open network for 180 seconds after boot
-  Zigbee.setRebootOpenNetwork(180);
+  Zigbee.setRebootOpenNetwork(30);
   Serial.println("set reboot");
   startTime = millis();
   printTime = millis();
@@ -165,7 +205,7 @@ void loop()
   {
     Serial.println("zbInit");
 
-      esp_coex_wifi_i154_enable();
+    esp_coex_wifi_i154_enable();
 
     // esp_zb_aps_data_indication_handler_register(zb_aps_data_indication_handler);
     // esp_zb_aps_data_confirm_handler_register(zb_aps_data_confirm_handler);
@@ -236,8 +276,8 @@ void loop()
       {
         esp_zb_lock_acquire(portMAX_DELAY);
         zbGateway.bindDeviceCluster(joined_device, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
-        // addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
-        // addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT);
+        addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT);
+        addSuplaChannel(joined_device->ieee_addr, joined_device->short_addr, ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT);
         esp_zb_lock_release();
       }
       else if (strcmp(zbd_model_name, "TS0001") == 0)
