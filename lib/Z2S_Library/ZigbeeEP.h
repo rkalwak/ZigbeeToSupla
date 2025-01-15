@@ -39,8 +39,10 @@ typedef struct zbstring_s {
 } ESP_ZB_PACKED_STRUCT zbstring_t;
 
 typedef struct zb_device_params_s {
+  uint32_t model_id;
   esp_zb_ieee_addr_t ieee_addr;
   uint8_t endpoint;
+  uint16_t cluster_id;
   uint16_t short_addr;
 } zb_device_params_t;
 
@@ -100,17 +102,27 @@ public:
 
   //list of all handlers function calls, to be override by EPs implementation
   virtual void zbAttributeSet(const esp_zb_zcl_set_attr_value_message_t *message) {};
-  virtual void zbAttributeRead(uint16_t cluster_id, const esp_zb_ieee_addr_t long_address, const esp_zb_zcl_attribute_t *attribute) {};
+  virtual void zbAttributeRead(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute) {};
   virtual void zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute);  //already implemented
   virtual void zbIdentify(const esp_zb_zcl_set_attr_value_message_t *message);
 
   virtual void zbIASZoneStatusChangeNotification(const esp_zb_zcl_ias_zone_status_change_notification_message_t *message) {};
+  virtual void zbCmdDiscAttrResponse(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, 
+                                     const esp_zb_zcl_disc_attr_variable_t *variable) {};
+
   virtual void addBoundDevice(zb_device_params_t *device) {
     _bound_devices.push_back(device);
     _is_bound = true;
-   //if (_on_bound_device != NULL) 
-	//_on_bound_device(device);
-  }
+   }
+
+virtual bool isDeviceBound(uint16_t short_addr, esp_zb_ieee_addr_t ieee_addr) {
+
+	for (std::list<zb_device_params_t *>::iterator bound_device = _bound_devices.begin(); bound_device != _bound_devices.end(); ++bound_device) {
+              if (((*bound_device)->short_addr == short_addr) || (memcmp((*bound_device)->ieee_addr, ieee_addr, 8) == 0)) return true;
+	}
+	return false;
+		
+}
 
   void onIdentify(void (*callback)(uint16_t)) {
     _on_identify = callback;

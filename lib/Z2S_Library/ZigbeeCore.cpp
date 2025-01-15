@@ -17,7 +17,7 @@ ZigbeeCore::ZigbeeCore() {
   _host_config.host_connection_mode = ZB_HOST_CONNECTION_MODE_NONE;  // Disable host connection
   _zb_ep_list = esp_zb_ep_list_create();
   _primary_channel_mask = ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK;
-  _open_network = 0;
+  _open_network = 0xFF;
   _scan_status = ZB_SCAN_FAILED;
   _started = false;
   _connected = false;
@@ -92,6 +92,20 @@ void ZigbeeCore::addEndpoint(ZigbeeEP *ep) {
   esp_zb_ep_list_add_ep(_zb_ep_list, ep->_cluster_list, ep->_ep_config);
 }
 
+void ZigbeeCore::addGatewayEndpoint(ZigbeeEP *ep) {
+  ep_objects.push_back(ep);
+
+  log_d("Endpoint: %d, Device ID: 0x%04x", ep->_endpoint, ep->_device_id);
+  //Register clusters and ep_list to the ZigbeeCore class's ep_list
+  if (ep->_ep_config.endpoint == 0 || ep->_cluster_list == nullptr) {
+    log_e("Endpoint config or Cluster list is not initialized, EP not added to ZigbeeCore's EP list");
+    return;
+  }
+
+  esp_zb_ep_list_add_gateway_ep(_zb_ep_list, ep->_cluster_list, ep->_ep_config);
+}
+
+
 static void esp_zb_task(void *pvParameters) {
   esp_zb_bdb_set_scan_duration(Zigbee.getScanDuration());
 
@@ -156,6 +170,17 @@ bool ZigbeeCore::zigbeeInit(esp_zb_cfg_t *zb_cfg, bool erase_nvs) {
   if (erase_nvs) {
     esp_zb_nvram_erase_at_start(true);
   }
+  /*esp_zb_ieee_addr_t extended_pan_id;
+  extended_pan_id[0] = 0x10;
+  extended_pan_id[1] = 0x15;
+  extended_pan_id[2] = 0x35;
+  extended_pan_id[3] = 0xA0;
+  extended_pan_id[4] = 0xB1;
+  extended_pan_id[5] = 0x1C;
+  extended_pan_id[6] = 0x07;
+  extended_pan_id[7] = 0x14;
+
+  esp_zb_set_extended_pan_id(extended_pan_id);*/
 
   // Create Zigbee task and start Zigbee stack
   xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
@@ -315,7 +340,10 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
         // for each endpoint in the list call the findEndpoint function if not bounded or allowed to bind multiple devices
         for (std::list<ZigbeeEP *>::iterator it = Zigbee.ep_objects.begin(); it != Zigbee.ep_objects.end(); ++it) {
           if (!(*it)->bound() || (*it)->epAllowMultipleBinding()) {
-            (*it)->findEndpoint(&cmd_req);
+	
+		if ((*it)->isDeviceBound(dev_annce_params->device_short_addr, dev_annce_params->ieee_addr))
+			log_d("Device already bound to endpoint %d", (*it)->getEndpoint());
+		else (*it)->findEndpoint(&cmd_req);
           }
         }
       }
@@ -337,6 +365,9 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
         Zigbee.factoryReset();
       }
       break;
+     case ESP_ZB_NLME_STATUS_INDICATION: {
+        printf("%s, status: 0x%x\n", esp_zb_zdo_signal_to_string(sig_type), *(uint8_t *)esp_zb_app_signal_get_params(p_sg_p));
+    } break;
     default: log_v("ZDO signal: %s (0x%x), status: %s", esp_zb_zdo_signal_to_string(sig_type), sig_type, esp_err_to_name(err_status)); break;
   }
 }
@@ -352,7 +383,7 @@ void ZigbeeCore::scanCompleteCallback(esp_zb_zdp_status_t zdo_status, uint8_t co
     log_v("Found %d networks", count);
     //print Zigbee networks
     for (int i = 0; i < count; i++) {
-      log_v(
+        log_v(
         "Network %d: PAN ID: 0x%04hx, Permit Joining: %s, Extended PAN ID: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x, Channel: %d, Router Capacity: %s, End "
         "Device Capacity: %s",
         i, nwk_descriptor[i].short_pan_id, nwk_descriptor[i].permit_joining ? "Yes" : "No", nwk_descriptor[i].extended_pan_id[7],
@@ -429,6 +460,7 @@ void ZigbeeCore::bindingTableCb(const esp_zb_zdo_binding_table_info_t *table_inf
       } else {  //ESP_ZB_APS_ADDR_MODE_64_ENDP_PRESENT
         memcpy(device->ieee_addr, record->dst_address.addr_long, sizeof(esp_zb_ieee_addr_t));
       }
+      device->cluster_id = record->cluster_id;
 
       // Add to list of bound devices of proper endpoint
       for (std::list<ZigbeeEP *>::iterator it = Zigbee.ep_objects.begin(); it != Zigbee.ep_objects.end(); ++it) {
@@ -494,7 +526,7 @@ const char *ZigbeeCore::getDeviceTypeString(esp_zb_ha_standard_devices_t deviceI
     case ESP_ZB_HA_COLOR_DIMMABLE_LIGHT_DEVICE_ID:       return "Color Dimmable Light Device";
     case ESP_ZB_HA_DIMMER_SWITCH_DEVICE_ID:              return "Dimmer Switch Device";
     case ESP_ZB_HA_COLOR_DIMMER_SWITCH_DEVICE_ID:        return "Color Dimmer Switch Device";
-    //case ESP_ZB_HA_LIGHT_SENSOR_DEVICE_ID:               return "Light Sensor";
+    case ESP_ZB_HA_LIGHT_SENSOR_DEVICE_ID:               return "Light Sensor";
     case ESP_ZB_HA_SHADE_DEVICE_ID:                      return "Shade";
     case ESP_ZB_HA_SHADE_CONTROLLER_DEVICE_ID:           return "Shade controller";
     case ESP_ZB_HA_WINDOW_COVERING_DEVICE_ID:            return "Window Covering client";
