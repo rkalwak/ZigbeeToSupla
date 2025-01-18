@@ -85,7 +85,16 @@ public:
   void setClusterReporting(uint16_t short_addr, uint16_t endpoint, uint16_t cluster_id, uint16_t attribute_id, uint8_t attribute_type, 
                           uint16_t min_interval, uint16_t max_interval, uint16_t delta);  
 
+  void setClusterReporting(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster_id, uint16_t attribute_id, uint8_t attribute_type, 
+                          uint16_t min_interval, uint16_t max_interval, uint16_t delta);  
+
+
   void sendAttributeRead(zb_device_params_t * device, int16_t cluster_id, uint16_t attribute_id);
+
+  void sendAttributeWrite( zb_device_params_t * device, int16_t cluster_id, uint16_t attribute_id,
+                                        esp_zb_zcl_attr_type_t attribute_type, uint16_t attribute_size, void *attribute_value);
+
+  void sendIASzoneEnrollResponseCmd(zb_device_params_t *device, uint8_t enroll_rsp_code, uint8_t zone_id);
   
   void setOnOffCluster(esp_zb_ieee_addr_t ieee_addr, bool value);
 
@@ -139,6 +148,8 @@ public:
 private:
   // save instance of the class in order to use it in static functions
   static ZigbeeGateway *_instance;
+
+  static bool GatewayReady;
 
   static findcb_userdata_t findcb_userdata;
   static bool _last_bind_success;
