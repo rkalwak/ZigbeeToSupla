@@ -33,11 +33,9 @@ Ensure content to be:
   "vendor": "Espressif"
 }
 
-
-
 ```
 
-You need to have zigbee_zczr_8MB.csv file available in location:
+You need to have zigbee_zczr_custom.csv file available in location:
 
 ```
 C:\Users\USER\.platformio\packages\framework-arduinoespressif32@src-862afffe99ca01146a6a0c843009d37a\tools\partitions
