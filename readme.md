@@ -37,7 +37,13 @@ Ensure content to be:
 
 ```
 
-Warning! default flash_size is 8MB but to satisfy Zigbee partition I changed to 4MB
+You need to have zigbee_zczr_8MB.csv file available in location:
+
+```
+C:\Users\USER\.platformio\packages\framework-arduinoespressif32@src-862afffe99ca01146a6a0c843009d37a\tools\partitions
+```
+
+Copy priv_auth_data_example.h as priv_auth_data.h and fill in the credentials
 
 # How it works?
 
@@ -50,3 +56,4 @@ Save it in ESP memory with ID of device, keep them ordered as they joined so the
 ## State change
 
 Find device by id and apply it state
+
