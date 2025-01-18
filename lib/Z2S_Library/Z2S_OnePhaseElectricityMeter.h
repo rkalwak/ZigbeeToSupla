@@ -22,7 +22,7 @@ class Z2S_OnePhaseElectricityMeter : public OnePhaseElectricityMeter {
     updateChannelValues();
   }
 
-  virtual void readValuesFromDevice() {
+   void readValuesFromDevice() override {
     Gateway->sendAttributeRead(&Device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID);
     Gateway->sendAttributeRead(&Device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID);
     Gateway->sendAttributeRead(&Device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID);

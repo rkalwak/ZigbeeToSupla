@@ -119,7 +119,10 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
 
   { .manufacturer_name = "_TZ3000_abrsvsou", .model_name = "TS004F", 
-    .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1}
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
+
+  {.manufacturer_name = "_TZ3000_gjrubzje", .model_name = "TS0001", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
 };
 
 //_TZ3000_wkai4ga5
