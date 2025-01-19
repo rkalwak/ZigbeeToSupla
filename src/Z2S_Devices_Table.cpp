@@ -1,5 +1,6 @@
 
 #include "Z2S_Devices_Table.h"
+#include <supla/sensor/general_purpose_measurement.h>
 
 extern ZigbeeGateway zbGateway;
 
@@ -303,7 +304,7 @@ void Z2S_onRMSCurrentReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
   if (channel_number_slot < 0)
     log_i("No channel found for address 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
-   ieee_addr[2], ieee_addr[1], ieee_addr[0]);
+          ieee_addr[2], ieee_addr[1], ieee_addr[0]);
   else
   {
     auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
@@ -324,7 +325,7 @@ void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
   if (channel_number_slot < 0)
     log_i("No channel found for address 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
-   ieee_addr[2], ieee_addr[1], ieee_addr[0]);
+          ieee_addr[2], ieee_addr[1], ieee_addr[0]);
   else
   {
     auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
@@ -337,13 +338,32 @@ void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint
   }
 }
 
+void Z2S_onPowerConfigNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t battery_voltage)
+{
+  log_i("Z2S_onPowerNotification 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
+        ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
+  if (channel_number_slot < 0)
+    log_i("No channel found for address 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
+          ieee_addr[2], ieee_addr[1], ieee_addr[0]);
+  else
+  {
+    auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
+    if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_ELECTRICITY_METER)
+    {
+      auto Supla_BatteryVoltagePercentage = reinterpret_cast<Supla::Sensor::GeneralPurposeMeasurement *>(element);
+      Supla_BatteryVoltagePercentage->setValue(battery_voltage);
+    }
+  }
+}
+
 void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int iaszone_status)
 {
 
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_BINARYSENSOR);
   if (channel_number_slot < 0)
     log_i("No channel found for address 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
-   ieee_addr[2], ieee_addr[1], ieee_addr[0]);
+          ieee_addr[2], ieee_addr[1], ieee_addr[0]);
   else
   {
     auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
@@ -402,7 +422,7 @@ void Z2S_onBTCBoundDevice(zb_device_params_t *device)
   {
     log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id);
     zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id,
-                                  0x0021, ESP_ZB_ZCL_ATTR_TYPE_U8, 30, 120, 10);
+                                  ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID, ESP_ZB_ZCL_ATTR_TYPE_U8, 30, 120, 10);
   }
   if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT)
   {
@@ -442,7 +462,7 @@ void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster)
   if (channel_number_slot < 0)
   {
     log_i("No channel found for address 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", device->ieee_addr[7], device->ieee_addr[6], device->ieee_addr[5], device->ieee_addr[4], device->ieee_addr[3],
-   device->ieee_addr[2], device->ieee_addr[1], device->ieee_addr[0]);
+          device->ieee_addr[2], device->ieee_addr[1], device->ieee_addr[0]);
     uint8_t first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
 
     if (first_free_slot == 0xFF)
@@ -461,6 +481,17 @@ void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster)
     {
       auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway, device);
       Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualThermHygroMeter->getChannelNumber(), SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
+      
+      first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
+      if (first_free_slot == 0xFF)
+      {
+        log_i("Devices table full");
+        return;
+      }
+      auto Supla_BatteryVoltagePercentage = new Supla::Sensor::GeneralPurposeMeasurement();
+      Supla_BatteryVoltagePercentage->setInitialCaption("Battery voltage");
+      Supla_BatteryVoltagePercentage->setUnitAfterValue("%");
+      Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_BatteryVoltagePercentage->getChannelNumber(), SUPLA_CHANNELTYPE_GENERAL_PURPOSE_MEASUREMENT);
     }
     break;
     case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR:
@@ -470,6 +501,12 @@ void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster)
     }
     break;
     case Z2S_DEVICE_DESC_RELAY:
+    {
+      auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, device->ieee_addr);
+      Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY);
+    }
+    break;
+    case Z2S_DEVICE_DESC_ON_OFF:
     {
       auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, device->ieee_addr);
       Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY);
@@ -529,6 +566,13 @@ void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster)
         auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, z2s_devices_table[channel_number_slot].ieee_addr);
         Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
       }
+    }
+    break;
+
+    case Z2S_DEVICE_DESC_ON_OFF:
+    {
+      auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, device->ieee_addr);
+      Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
     }
     break;
 
