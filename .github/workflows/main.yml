@@ -17,6 +17,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Get all  files
+        id: filelist
+        uses: the-coding-turtle/ga-file-list@v0.1
+      - name: Update .platformio\platforms\espressif32\boards\esp32-c6-devkitc-1.json file to enable arduino framework
+        uses: restackio/update-json-file-action@2.1
+        with:
+          file: ~/.platformio/platforms/espressif32/boards/esp32-c6-devkitc-1.json
+          fields: "{\"frameworks[0]\": \"arduino\"}"
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
