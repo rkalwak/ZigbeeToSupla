@@ -25,6 +25,10 @@
       }                                                                                        \
   }
 
+#define TUYA_PRIVATE_CLUSTER_0 0xE000
+#define TUYA_PRIVATE_CLUSTER_1 0xE001
+#define TUYA_PRIVATE_CLUSTER_2 0xEF00
+
 typedef struct findcb_userdata_s {
   uint8_t   _endpoint;
   uint16_t  _cluster_id;
@@ -70,6 +74,10 @@ public:
 
   static void clearNewDeviceJoined() {
     _new_device_joined = false;
+  }
+
+  static void setEndpoints2Bind(uint8_t endpoints_count) {
+    _endpoints_2_bind = endpoints_count;
   }
 
   static void setClusters2Bind(uint16_t clusters_count) {
@@ -163,7 +171,9 @@ private:
   static bool _new_device_joined;
 
   static uint16_t _clusters_2_discover;
-  static uint16_t _attributes_2_discover; 
+  static uint16_t _attributes_2_discover;
+
+  static uint16_t _endpoints_2_bind;
   static uint16_t _clusters_2_bind;
 
   void (*_on_IAS_zone_status_change_notification)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, int);

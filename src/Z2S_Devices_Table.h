@@ -2,7 +2,7 @@
 #define Z2S_DEVICES_TABLE_H_
 
 #include <ZigbeeGateway.h>
-#include "Z2S_Devices_Database.h"
+#include <Z2S_devices_database.h>
 
 #include <SuplaDevice.h>
 #include <supla/sensor/virtual_binary.h>
