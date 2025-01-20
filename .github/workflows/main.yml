@@ -28,12 +28,16 @@ jobs:
           fields: "{\"frameworks[0]\": \"arduino\", \"build.variant\": \"esp32c6\"}"
       - name: Build PlatformIO Project
         run: pio run
-      - name: Create Release
-        uses: "marvinpinto/action-automatic-releases@latest"
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.2
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "Development Build"
-          files: |
-            .pio/build/esp32-c6-devkitc-1/firmware.bin
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          fetch_all_tags: true
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
+          artifacts: .pio/build/esp32-c6-devkitc-1/firmware.bin
