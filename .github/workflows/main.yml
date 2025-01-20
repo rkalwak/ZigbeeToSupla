@@ -22,10 +22,18 @@ jobs:
       - name: PlatformIO platform installation
         run: pio pkg install
       - name: Update .platformio\platforms\espressif32\boards\esp32-c6-devkitc-1.json file to enable arduino framework
-        if: always()
         uses: restackio/update-json-file-action@2.1
         with:
           file: /home/runner/.platformio/platforms/espressif32/boards/esp32-c6-devkitc-1.json
           fields: "{\"frameworks[0]\": \"arduino\", \"build.variant\": \"esp32c6\"}"
       - name: Build PlatformIO Project
         run: pio run
+      - name: Create Release
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            .pio/build/esp32-c6-devkitc-1/firmware.bin
