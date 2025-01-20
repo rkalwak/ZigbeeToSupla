@@ -25,7 +25,7 @@ jobs:
         if: always()
         uses: restackio/update-json-file-action@2.1
         with:
-          file: /root/.platformio/platforms/espressif32/boards/esp32-c6-devkitc-1.json
+          file: /home/runner/.platformio/platforms/espressif32/boards/esp32-c6-devkitc-1.json
           fields: "{\"frameworks[0]\": \"arduino\", \"build.variant\": \"esp32c6\"}"
       - name: Build PlatformIO Project
         run: pio run
