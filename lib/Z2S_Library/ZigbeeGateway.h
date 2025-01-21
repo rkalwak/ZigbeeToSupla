@@ -9,7 +9,6 @@
 
 #include "ZigbeeEP.h"
 #include "ha/esp_zigbee_ha_standard.h"
-#include "zcl/esp_zigbee_zcl_power_config.h"
 
 //define the thermostat configuration to avoid narrowing conversion issue in zigbee-sdk
 #define ZB_DEFAULT_GATEWAY_CONFIG()                                                               \
@@ -131,23 +130,21 @@ public:
 
     _on_rms_voltage_receive = callback;
   }
-
   
   void onRMSCurrentReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t)) {
 
     _on_rms_current_receive = callback;
   }
-
   
   void onRMSActivePowerReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t)) {
 
     _on_rms_active_power_receive = callback;
   }
 
-  void onPowerConfigNotification(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t)) {
+   void onBatteryPercentageReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t)) {
 
-    _on_power_config_notification = callback;
-  }
+    _on_battery_percentage_receive = callback;
+   }
 
   void onBoundDevice(void (*callback)(zb_device_params_t *, bool)) {
 
@@ -170,6 +167,8 @@ private:
   static bool _in_binding;
   static bool _new_device_joined;
 
+  static uint8_t _binding_error_retries;
+
   static uint16_t _clusters_2_discover;
   static uint16_t _attributes_2_discover;
 
@@ -183,7 +182,7 @@ private:
   void (*_on_rms_voltage_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t );
   void (*_on_rms_current_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t);
   void (*_on_rms_active_power_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t);
-  void (*_on_power_config_notification)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t);
+  void (*_on_battery_percentage_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t);
 
   void (*_on_bound_device)(zb_device_params_t *, bool);
   void (*_on_btc_bound_device)(zb_device_params_t *);

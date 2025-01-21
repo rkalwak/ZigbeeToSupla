@@ -2,7 +2,7 @@
 #define Z2S_DEVICES_TABLE_H_
 
 #include <ZigbeeGateway.h>
-#include <Z2S_devices_database.h>
+#include "Z2S_Devices_Database.h"
 
 #include <SuplaDevice.h>
 #include <supla/sensor/virtual_binary.h>
@@ -11,8 +11,7 @@
 
 #include <Z2S_virtual_relay.h>
 #include <Z2S_OnePhaseElectricityMeter.h>
-#include "Z2S_sensor/Z2S_virtual_therm_hygro_meter.h"
-#include "zcl/esp_zigbee_zcl_power_config.h"
+#include <Z2S_sensor/Z2S_virtual_therm_hygro_meter.h>
 
 typedef struct z2s_device_params_s {
 
@@ -62,12 +61,14 @@ void Z2S_onRMSCurrentReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
 
 void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t active_power);
 
-void Z2S_onPowerConfigNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t battery_voltage);
+void Z2S_onBatteryPercentageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t battery_remaining);
 
 void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int iaszone_status);
 
 void Z2S_onBTCBoundDevice(zb_device_params_t *device); 
 
 void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster);
+
+void Z2S_addZ2SDevice(zb_device_params_t *device);
 
 #endif
