@@ -533,7 +533,8 @@ void Z2S_addZ2SDevice(zb_device_params_t *device) {
         auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
         Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
       } break;
-      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER: {
+      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER:
+      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER1: {
         auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
         Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
         first_free_slot = Z2S_findFirstFreeDevicesTableSlot();

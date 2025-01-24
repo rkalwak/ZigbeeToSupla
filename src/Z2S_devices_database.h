@@ -10,6 +10,7 @@
 
 #define Z2S_DEVICE_DESC_RELAY                       0x4000
 #define Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER     0x4100
+#define Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER1    0x4101
 
 #define Z2S_DEVICE_DESC_ON_OFF                      0x8000
 #define Z2S_DEVICE_DESC_ON_OFF_1                    0x8001
@@ -62,6 +63,11 @@ static z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM = {
     { ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY, 
       ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG, 
       ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+      ESP_ZB_ZCL_CLUSTER_ID_METERING,
+      ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT }},
+
+  { .z2s_device_desc_id = Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER1, .z2s_device_clusters_count = 3, .z2s_device_clusters =
+    { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
       ESP_ZB_ZCL_CLUSTER_ID_METERING,
       ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT }},
 
@@ -131,7 +137,6 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
   { .manufacturer_name = "TEST1", .model_name = "TS0205", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_IAS_ZONE_SENSOR, .z2s_device_endpoints_count = 1},
 
-
   { .manufacturer_name = "_TZ3000_lf56vpxj", .model_name = "TS0202", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_IAS_ZONE_SENSOR, .z2s_device_endpoints_count = 1}, 
 
@@ -147,9 +152,12 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
   { .manufacturer_name = "_TZ3000_wkai4ga5", .model_name = "TS0044", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 4, 
     .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_ON_OFF },
-                              { 2, Z2S_DEVICE_DESC_ON_OFF_1 },
-                              { 3, Z2S_DEVICE_DESC_ON_OFF_1 },
-                              { 4, Z2S_DEVICE_DESC_ON_OFF_1 }}},
+                              { 2, Z2S_DEVICE_DESC_ON_OFF },
+                              { 3, Z2S_DEVICE_DESC_ON_OFF },
+                              { 4, Z2S_DEVICE_DESC_ON_OFF }}},
+
+  { .manufacturer_name = "_TZ3000_ww6drja5", .model_name = "TS011F", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER1, .z2s_device_endpoints_count = 1},
 
   { .manufacturer_name = "_TZ3000_yj6k7vfo", .model_name = "TS0041", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 4, 
@@ -171,6 +179,9 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
 
   { .manufacturer_name = "_TZ3000_abrsvsou", .model_name = "TS004F", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
+
+  { .manufacturer_name = "_TZ3000_4fjiwweb", .model_name = "TS011F", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
 
   { .manufacturer_name = "IKEA of Sweden", .model_name = "Remote Control N2", 
