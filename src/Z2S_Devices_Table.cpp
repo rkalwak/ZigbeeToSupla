@@ -1,5 +1,16 @@
 
+
 #include "Z2S_Devices_Table.h"
+#include "Z2S_Device_IASzone.h"
+#include "Z2S_Device_Tyua_Hvac.h"
+
+#include <SuplaDevice.h>
+#include <supla/sensor/virtual_therm_hygro_meter.h>
+#include <supla/sensor/one_phase_electricity_meter.h>
+#include <supla/control/virtual_relay.h>
+
+#include <Z2S_control/Z2S_virtual_relay.h>
+#include <Z2S_sensor/Z2S_OnePhaseElectricityMeter.h>
 
 extern ZigbeeGateway zbGateway;
 
@@ -37,7 +48,7 @@ void Z2S_printDevicesTableSlots() {
 }
 
 
-int16_t Z2S_findChannelNumberSlot(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int32_t channel_type ) {
+int16_t Z2S_findChannelNumberSlot(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int32_t channel_type, int8_t sub_id) {
 
   log_i("Z2S_findChannelNumberSlot 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x, channel type 0x%x", 
         ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], 
@@ -47,7 +58,8 @@ int16_t Z2S_findChannelNumberSlot(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
       if (z2s_devices_table[devices_counter].valid_record)
         if ((memcmp(z2s_devices_table[devices_counter].ieee_addr, ieee_addr,8) == 0) && 
         (z2s_devices_table[devices_counter].endpoint == endpoint) &&
-        ((channel_type < 0) || (z2s_devices_table[devices_counter].Supla_channel_type == channel_type))) { 
+        ((channel_type < 0) || (z2s_devices_table[devices_counter].Supla_channel_type == channel_type)) &&
+        ((sub_id < 0) || (z2s_devices_table[devices_counter].sub_id == sub_id))) { 
         //&& (z2s_devices_table[devices_counter].cluster_id = cluster)) {
             return devices_counter;
         }
@@ -56,7 +68,28 @@ int16_t Z2S_findChannelNumberSlot(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
   return -1;
 }
 
-void Z2S_fillDevicesTableSlot(zb_device_params_t *device, uint8_t slot, uint8_t channel, int32_t channel_type) {
+int16_t Z2S_findChannelNumberNextSlot(int16_t prev_slot, esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, 
+                                      int32_t channel_type, int8_t sub_id) {
+
+  log_i("Z2S_findChannelNumberNextSlot 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x, channel type 0x%x", 
+        ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], 
+        endpoint, channel_type);
+  
+  for (uint8_t devices_counter = prev_slot + 1; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) {
+      if (z2s_devices_table[devices_counter].valid_record)
+        if ((memcmp(z2s_devices_table[devices_counter].ieee_addr, ieee_addr,8) == 0) && 
+        (z2s_devices_table[devices_counter].endpoint == endpoint) &&
+        ((channel_type < 0) || (z2s_devices_table[devices_counter].Supla_channel_type == channel_type)) &&
+        ((sub_id < 0) || (z2s_devices_table[devices_counter].sub_id == sub_id))) { 
+        //&& (z2s_devices_table[devices_counter].cluster_id = cluster)) {
+            return devices_counter;
+        }
+  }  
+  return -1;
+}
+
+void Z2S_fillDevicesTableSlot(zb_device_params_t *device, uint8_t slot, uint8_t channel, int32_t channel_type, int8_t sub_id,
+                              char *name, uint32_t func) {
 
   z2s_devices_table[slot].valid_record = true;
   memcpy(z2s_devices_table[slot].ieee_addr,device->ieee_addr,8);
@@ -64,7 +97,10 @@ void Z2S_fillDevicesTableSlot(zb_device_params_t *device, uint8_t slot, uint8_t 
   z2s_devices_table[slot].endpoint = device->endpoint;
   z2s_devices_table[slot].cluster_id = device->cluster_id;
   z2s_devices_table[slot].Supla_channel = channel;
-  z2s_devices_table[slot].Supla_channel_type = channel_type; 
+  z2s_devices_table[slot].Supla_channel_type = channel_type;
+  z2s_devices_table[slot].sub_id = sub_id; 
+  if (name) strcpy(z2s_devices_table[slot].Supla_channel_name, name);
+  z2s_devices_table[slot].Supla_channel_func = func;
   
   Z2S_saveDevicesTable();
   Z2S_printDevicesTableSlots();
@@ -133,45 +169,50 @@ bool Z2S_saveDevicesTable() {
 
 void Z2S_initSuplaChannels(){
 
-  log_i ("iintSuplaChannels starting");
-  for (uint8_t devices_counter = 0; devices_counter < SUPLA_CHANNELMAXCOUNT; devices_counter++) {
-      if (z2s_devices_table[devices_counter].valid_record) 
+  log_i ("initSuplaChannels starting");
+  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) {
+      if (z2s_devices_table[devices_counter].valid_record) {
+
+        zb_device_params_t device;
+        device.endpoint = z2s_devices_table[devices_counter].endpoint;
+        device.cluster_id = z2s_devices_table[devices_counter].cluster_id;
+        memcpy(device.ieee_addr, z2s_devices_table[devices_counter].ieee_addr,8);
+        device.short_addr = z2s_devices_table[devices_counter].short_addr;
+
         switch (z2s_devices_table[devices_counter].Supla_channel_type) {
           case SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR: {
-            zb_device_params_t device;
-            device.endpoint = z2s_devices_table[devices_counter].endpoint;
-            device.cluster_id = z2s_devices_table[devices_counter].cluster_id;
-            memcpy(device.ieee_addr, z2s_devices_table[devices_counter].ieee_addr,8);
-            /*log_i("init Channel device ieee 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", device.ieee_addr[7], device.ieee_addr[6], device.ieee_addr[5], 
-            device.ieee_addr[4], device.ieee_addr[3], device.ieee_addr[2], device.ieee_addr[1], device.ieee_addr[0]);
-            log_i("init Channel device table ieee 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x", z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5], 
-            z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2], z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0]);
-            device.short_addr = esp_zb_address_short_by_ieee(device.ieee_addr);
-            log_i("device short_addr 0x%x", device.short_addr);*/
             
-            //log_i("auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway,&device);");
-            //auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway,&device);
             auto Supla_VirtualThermHygroMeter = new Supla::Sensor::VirtualThermHygroMeter();
             Supla_VirtualThermHygroMeter->getChannel()->setChannelNumber(z2s_devices_table[devices_counter].Supla_channel);
-            Supla_VirtualThermHygroMeter->getChannel()->setBatteryPowered(true);
           } break;
           case SUPLA_CHANNELTYPE_BINARYSENSOR: {
-            auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary();
-            Supla_VirtualBinary->getChannel()->setChannelNumber(z2s_devices_table[devices_counter].Supla_channel);
-            Supla_VirtualBinary->getChannel()->setBatteryPowered(true);
+            
+            initZ2SDeviceIASzone(z2s_devices_table[devices_counter].Supla_channel); 
+            
           } break;
           case SUPLA_CHANNELTYPE_RELAY: {
             auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,z2s_devices_table[devices_counter].ieee_addr );
             Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[devices_counter].Supla_channel);
           } break;
+          case SUPLA_CHANNELTYPE_ACTIONTRIGGER: {
+            auto Supla_VirtualRelay = new Supla::Control::VirtualRelay();
+            Supla_VirtualRelay->setInitialCaption(z2s_devices_table[devices_counter].Supla_channel_name);
+            Supla_VirtualRelay->setDefaultFunction(z2s_devices_table[devices_counter].Supla_channel_func);
+            Supla_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[devices_counter].Supla_channel);
+          } break;
           case SUPLA_CHANNELTYPE_ELECTRICITY_METER: {
             auto Supla_Z2S_OnePhaseElectricityMeter = new Supla::Sensor::OnePhaseElectricityMeter();
             Supla_Z2S_OnePhaseElectricityMeter->getChannel()->setChannelNumber(z2s_devices_table[devices_counter].Supla_channel);
+          } break;
+          case SUPLA_CHANNELTYPE_HVAC: {
+
+            initZ2SDeviceTyuaHvac(&zbGateway, &device, z2s_devices_table[devices_counter].Supla_channel);
           } break;
           default: {
             log_i("Can't create channel for %d channel type", z2s_devices_table[devices_counter].Supla_channel_type);
           } break;
         }
+      }
   }  
 }
 
@@ -179,7 +220,7 @@ void Z2S_onTemperatureReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, u
 
   log_i("onTemperatureReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -197,7 +238,7 @@ void Z2S_onHumidityReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
 
   log_i("onHumidityReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -215,7 +256,7 @@ void Z2S_onOnOffReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_
 
   log_i("onOnOffReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_RELAY);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_RELAY, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -233,7 +274,7 @@ void Z2S_onRMSVoltageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
 
   log_i("onRMSVoltageReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -251,7 +292,7 @@ void Z2S_onRMSCurrentReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
 
   log_i("onRMSCurrentReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -269,7 +310,7 @@ void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint
 
   log_i("onRMSVoltageReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
@@ -287,218 +328,78 @@ void Z2S_onBatteryPercentageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpo
 
   log_i("onBatteryPercentageReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], ieee_addr[3],
    ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, -1);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
+  while (channel_number_slot >= 0)
   {
     auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-    if (element != nullptr && element->getChannel()->isBatteryPowered()) {
-
-        element->getChannel()->setBatteryLevel(battery_remaining);
-    }
+    if (element) element->getChannel()->setBatteryLevel(battery_remaining);
+    channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, ieee_addr, endpoint, cluster, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
   }
 }
 
 void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int iaszone_status) {
   
-int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_BINARYSENSOR);
+int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_BINARYSENSOR, NO_CUSTOM_CMD_SID);
   if (channel_number_slot < 0)
     log_i("No channel found for address %s", ieee_addr);
   else
-  {
-    auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-    if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_BINARYSENSOR) {
+    msgZ2SDeviceIASzone(z2s_devices_table[channel_number_slot].Supla_channel, iaszone_status);
+}
 
-        auto Supla_VirtualBinary = reinterpret_cast<Supla::Sensor::VirtualBinary *>(element);
-        if (iaszone_status == 0) Supla_VirtualBinary->set();
-        else Supla_VirtualBinary->clear();
+void Z2S_onOnOffCustomCmdReceive( esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint8_t command_id, uint8_t command_data) {
+  
+  log_i("Z2S_onOnOffCustomCmdReceive command id 0x%x, command data 0x%x", command_id, command_data);
+  if ((command_id == ON_OFF_CUSTOM_CMD_BUTTON_PRESS) || (command_id == ON_OFF_CUSTOM_CMD_BUTTON_ROTATE)) {
+
+    int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 
+                                                            SUPLA_CHANNELTYPE_ACTIONTRIGGER, command_data);
+    if (channel_number_slot < 0)
+      log_i("No channel found for address %s", ieee_addr);
+    else {
+      log_i("z2s_devices_table[channel_number_slot].Supla_channel 0x%x", z2s_devices_table[channel_number_slot].Supla_channel);
+      auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
+      if (element) log_i("element->getChannel()->getChannelType() 0x%x", element->getChannel()->getChannelType());
+      else log_i("element not found");
+      if (element) { //(element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_ACTIONTRIGGER) {
+        log_i("trying to toggle");
+      auto Supla_VirtualRelay = reinterpret_cast<Supla::Control::VirtualRelay *>(element);
+      Supla_VirtualRelay->toggle();
+      }
     }
   }
 }
 
+void Z2S_onCmdCustomClusterReceive( esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t command_id,
+                                    uint16_t payload_size, uint8_t *payload) {
+  
+int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_HVAC, NO_CUSTOM_CMD_SID);
+  if (channel_number_slot < 0)
+    log_i("No channel found for address %s", ieee_addr);
+  else
+    msgZ2SDeviceTyuaHvac(z2s_devices_table[channel_number_slot].Supla_channel, cluster, command_id, payload_size, payload);
+}
 
 void Z2S_onBTCBoundDevice(zb_device_params_t *device) {
 
   
   log_i("BTC bound device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE) {
-    
-    //esp_zb_ieee_addr_t addr;
-    //memset(addr,0,sizeof(esp_zb_ieee_addr_t));
-    //zbGateway.sendAttributeWrite(device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE, ESP_ZB_ZCL_ATTR_IAS_ZONE_IAS_CIE_ADDRESS_ID,
-    //                   ESP_ZB_ZCL_ATTR_TYPE_U64,sizeof(esp_zb_ieee_addr_t),addr);
-    
-    //esp_zb_get_long_address(addr);
-    //zbGateway.sendAttributeWrite(device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE, ESP_ZB_ZCL_ATTR_IAS_ZONE_IAS_CIE_ADDRESS_ID,
-    //                   ESP_ZB_ZCL_ATTR_TYPE_U64,sizeof(esp_zb_ieee_addr_t),addr);
-    //zbGateway.sendIASzoneEnrollResponseCmd(device, ESP_ZB_ZCL_IAS_ZONE_ENROLL_RESPONSE_CODE_SUCCESS, 120);
-  
-    
-    //log_i("Trying to read device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE, ESP_ZB_ZCL_ATTR_IAS_ZONE_ZONESTATUS_ID);
-    //zbGateway.setClusterReporting(device->ieee_addr, device->endpoint, device->cluster_id, 
-      //                            ESP_ZB_ZCL_ATTR_IAS_ZONE_ZONESTATUS_ID, ESP_ZB_ZCL_ATTR_TYPE_16BITMAP, 0, 10, 1);
-  } /*else
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, ESP_ZB_ZCL_ATTR_TYPE_BOOL, 0, 10, 1);
-  } else
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, ESP_ZB_ZCL_ATTR_TYPE_S16, 30, 120, 10);
-  } else
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 30, 120, 10);
-  } else
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  0x0021, ESP_ZB_ZCL_ATTR_TYPE_U8, 30, 120, 10);
-  }
-  if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT) {
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACVOLTAGE_MULTIPLIER_ID);
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACVOLTAGE_DIVISOR_ID);
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACCURRENT_MULTIPLIER_ID);
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACCURRENT_DIVISOR_ID);
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACPOWER_MULTIPLIER_ID);
-    //zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT,ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACPOWER_DIVISOR_ID);
-
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 5, 5, 1);
-  }if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 5, 5, 1);
-  }if (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT) {
-    log_i("Trying to wake up device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-    zbGateway.setClusterReporting(device->short_addr, device->endpoint, device->cluster_id, 
-                                  ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 5, 5, 1);
-  }*/
-  //Z2S_onBoundDevice(device, true);
+  //zbGateway.zbQueryDeviceBasicCluster(device);
 }
 
 
 void Z2S_onBoundDevice(zb_device_params_t *device, bool last_cluster) {
   
-  
-  /* marked for removal
-
-  Z2S_printDevicesTableSlots();
-
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, -1);
-  
-  if (channel_number_slot < 0) {
-    log_i("No channel found for address %s, adding new one", device->ieee_addr);
-    
-    uint8_t first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
-    
-    if (first_free_slot == 0xFF) {
-        log_i("Devices table full");
-        return;
-    }
-    log_i("model id %d, first free slot %d", device->model_id, first_free_slot);
-    
-    switch (device->model_id) {
-      case 0x0000: break;
-      
-      case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR: {
-        //auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway,device);
-        auto Supla_VirtualThermHygroMeter = new Supla::Sensor::VirtualThermHygroMeter();
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualThermHygroMeter->getChannelNumber(), SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
-      } break;
-      case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR: {
-        auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary();
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualBinary->getChannelNumber(), SUPLA_CHANNELTYPE_BINARYSENSOR); 
-      } break;
-      case Z2S_DEVICE_DESC_RELAY: {
-        auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
-      } break;
-      case Z2S_DEVICE_DESC_ON_OFF: {
-        auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
-      } break;
-      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER: {
-        auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
-        first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
-        if (first_free_slot == 0xFF) {
-          log_i("Devices table full");
-          return;
-        }
-        auto Supla_Z2S_OnePhaseElectricityMeter = new Supla::Sensor::OnePhaseElectricityMeter();
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_OnePhaseElectricityMeter->getChannelNumber(), 
-                                SUPLA_CHANNELTYPE_ELECTRICITY_METER);
-
-      } break;
-    }
-  }
-  else
-  {
-    switch (device->model_id) {
-      case 0x0000: break;
-      
-      case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR: {
-        auto Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          //auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway, device);
-          auto Supla_VirtualThermHygroMeter = new Supla::Sensor::VirtualThermHygroMeter();
-          Supla_VirtualThermHygroMeter->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-      } break;
-
-      case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR: {
-        auto Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary();
-          Supla_VirtualBinary->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-      } break;
-      
-      case Z2S_DEVICE_DESC_RELAY: {
-        auto Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, z2s_devices_table[channel_number_slot].ieee_addr);
-          Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-      } break;
-      case Z2S_DEVICE_DESC_ON_OFF: {
-        auto Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, z2s_devices_table[channel_number_slot].ieee_addr);
-          Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-      } break;
-      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER: {
-        channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, SUPLA_CHANNELTYPE_RELAY);
-        auto Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway, z2s_devices_table[channel_number_slot].ieee_addr);
-          Supla_Z2S_VirtualRelay->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-        channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, SUPLA_CHANNELTYPE_ELECTRICITY_METER);
-        Supla_channel = Supla::Channel::GetByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        if (!Supla_channel) {
-          auto Supla_Z2S_OnePhaseElectricityMeter = new Supla::Sensor::OnePhaseElectricityMeter();
-          Supla_Z2S_OnePhaseElectricityMeter->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
-        }
-      } break;
-    }
-  }*/
 }
 
-void Z2S_addZ2SDevice(zb_device_params_t *device) {
+void Z2S_addZ2SDevice(zb_device_params_t *device, int8_t sub_id) {
   
   
   Z2S_printDevicesTableSlots();
 
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, -1);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, sub_id);
   
   if (channel_number_slot < 0) {
     log_i("No channel found for address %s, adding new one", device->ieee_addr);
@@ -516,27 +417,52 @@ void Z2S_addZ2SDevice(zb_device_params_t *device) {
       
       case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR:
       case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR_1: {
-        //auto Supla_VirtualThermHygroMeter = new Supla::Sensor::Z2S_VirtualThermHygroMeter(&zbGateway,device);
         auto Supla_VirtualThermHygroMeter = new Supla::Sensor::VirtualThermHygroMeter();
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualThermHygroMeter->getChannelNumber(), SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualThermHygroMeter->getChannelNumber(), SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR, -1);
       } break;
       case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR: {
-        auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary();
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualBinary->getChannelNumber(), SUPLA_CHANNELTYPE_BINARYSENSOR); 
+        addZ2SDeviceIASzone(device, first_free_slot);
+        //auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary();
+        //Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_VirtualBinary->getChannelNumber(), SUPLA_CHANNELTYPE_BINARYSENSOR); 
       } break;
-      case Z2S_DEVICE_DESC_RELAY: {
+      case Z2S_DEVICE_DESC_RELAY:
+      case Z2S_DEVICE_DESC_RELAY_1: {
         auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY,-1); 
       } break;
       case Z2S_DEVICE_DESC_ON_OFF:
       case Z2S_DEVICE_DESC_ON_OFF_1: {
-        auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
+        auto Supla_Z2S_VirtualRelay = new Supla::Control::VirtualRelay();
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_ACTIONTRIGGER, sub_id); 
       } break;
-      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER:
-      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER1: {
+      case Z2S_DEVICE_DESC_SWITCH_4X3: {
+        auto Supla_Z2S_VirtualRelay = new Supla::Control::VirtualRelay();
+        char button_name_function[30];
+        char button_function[][15] = {"pressed", "double pressed","held"};
+        sprintf(button_name_function, "button #%d %s", device->endpoint, button_function[sub_id]);
+        
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_ACTIONTRIGGER, sub_id,
+        button_name_function, SUPLA_CHANNELFNC_POWERSWITCH); 
+      } break;
+      case Z2S_DEVICE_DESC_SMART_BUTTON_2F:
+      case Z2S_DEVICE_DESC_SMART_BUTTON_3F:
+      case Z2S_DEVICE_DESC_SMART_BUTTON_5F: {
+        auto Supla_Z2S_VirtualRelay = new Supla::Control::VirtualRelay();
+        char button_name_function[30];
+        char button_function_press[][15] = {"pressed", "double pressed","held"};
+        char button_function_rotate[][15] = {"rotated right", "rotated left"};
+        if (sub_id < ON_OFF_CUSTOM_CMD_BUTTON_ROTATE_RIGHT_ID)
+          sprintf(button_name_function, "button %s", button_function_press[sub_id]);
+        else
+          sprintf(button_name_function, "button %s", button_function_rotate[sub_id - ON_OFF_CUSTOM_CMD_BUTTON_ROTATE_RIGHT_ID]);
+        
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_ACTIONTRIGGER, sub_id,
+        button_name_function, SUPLA_CHANNELFNC_POWERSWITCH); 
+      } break;
+
+      case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER: {
         auto Supla_Z2S_VirtualRelay = new Supla::Control::Z2S_VirtualRelay(&zbGateway,device->ieee_addr);
-        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY); 
+        Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_VirtualRelay->getChannelNumber(), SUPLA_CHANNELTYPE_RELAY,-1); 
         first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
         if (first_free_slot == 0xFF) {
           log_i("Devices table full");
@@ -544,8 +470,11 @@ void Z2S_addZ2SDevice(zb_device_params_t *device) {
         }
         auto Supla_Z2S_OnePhaseElectricityMeter = new Supla::Sensor::OnePhaseElectricityMeter();
         Z2S_fillDevicesTableSlot(device, first_free_slot, Supla_Z2S_OnePhaseElectricityMeter->getChannelNumber(), 
-                                SUPLA_CHANNELTYPE_ELECTRICITY_METER);
+                                SUPLA_CHANNELTYPE_ELECTRICITY_METER, -1);
 
+      } break;
+      case Z2S_DEVICE_TUYA_HVAC: {
+        addZ2SDeviceTyuaHvac(&zbGateway, device, first_free_slot);
       } break;
       default : {
         log_i("Device (0x%x), endpoint (0x%x), model (0x%x) unknown", device->short_addr, device->endpoint, device->model_id);

@@ -1,6 +1,6 @@
 /* Common Class for Zigbee End Point */
 
-#include "ZigbeeEP.h"
+#include <ZigbeeEP.h>
 
 #if SOC_IEEE802154_SUPPORTED 
 //&& CONFIG_ZB_ENABLED
