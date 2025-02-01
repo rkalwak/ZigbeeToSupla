@@ -206,6 +206,8 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
   { .manufacturer_name = "_TZ3000_w0qqde0g", .model_name = "TS011F", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER, .z2s_device_endpoints_count = 1},
 
+  { .manufacturer_name = "_TZ3000_ww6drja5", .model_name = "TS011F", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER, .z2s_device_endpoints_count = 1},
   { .manufacturer_name = "_TZ3000_wkai4ga5", .model_name = "TS0044", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 4, 
     .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_SWITCH_4X3 },
@@ -214,11 +216,7 @@ static z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
                               { 4, Z2S_DEVICE_DESC_SWITCH_4X3 }}},
 
   { .manufacturer_name = "_TZ3000_yj6k7vfo", .model_name = "TS0041", 
-    .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 4, 
-    .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_ON_OFF },
-                              { 2, Z2S_DEVICE_DESC_ON_OFF },
-                              { 3, Z2S_DEVICE_DESC_ON_OFF },
-                              { 4, Z2S_DEVICE_DESC_ON_OFF }}},
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_SMART_BUTTON_3F, .z2s_device_endpoints_count = 1},
 
   { .manufacturer_name = "_TZ3000_4fjiwweb", .model_name = "TS004F", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_ON_OFF, .z2s_device_endpoints_count = 1},
