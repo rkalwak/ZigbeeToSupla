@@ -360,7 +360,7 @@ void Z2S_onOnOffCustomCmdReceive( esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
       if (element) { //(element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_ACTIONTRIGGER) {
         log_i("trying to toggle");
       auto Supla_VirtualRelay = reinterpret_cast<Supla::Control::VirtualRelay *>(element);
-      Supla_VirtualRelay->turnOn(1000); //toggle();
+      Supla_VirtualRelay->toggle();
       }
     }
   }
