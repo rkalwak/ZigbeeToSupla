@@ -2,7 +2,7 @@
 #define Z2S_DEVICES_TABLE_H_
 
 #include <ZigbeeGateway.h>
-#include "Z2S_Devices_Database.h"
+#include "z2s_devices_database.h"
 
 typedef struct z2s_device_params_s {
 
@@ -31,7 +31,7 @@ const static char   Z2S_DEVICES_TABLE_SIZE []  PROGMEM = "Z2S_devs_ts";
 
 uint32_t Z2S_getDevicesTableSize();
 
-uint8_t Z2S_findFirstFreeDevicesTableSlot();
+uint8_t Z2S_findFirstFreeDevicesTableSlot(uint8_t start_slot = 0);
 
 void Z2S_printDevicesTableSlots();
 
@@ -60,6 +60,8 @@ void Z2S_onRMSVoltageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
 void Z2S_onRMSCurrentReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t current);
 
 void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t active_power);
+
+void Z2S_onCurrentSummationReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint64_t active_fwd_energy);  
 
 void Z2S_onBatteryPercentageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t battery_remaining);
 

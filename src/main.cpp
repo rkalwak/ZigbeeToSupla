@@ -14,9 +14,9 @@
 #include <Z2S_virtual_relay.h>
 #include <supla/sensor/one_phase_electricity_meter.h>
 #include <supla/sensor/virtual_binary.h>
-#include <Z2S_Devices_Database.h>
+#include <z2s_devices_database.h>
 #include <supla/device/supla_ca_cert.h>
-#include "Z2S_Devices_Table.h"
+#include <z2s_devices_table.h>
 #include <supla/network/esp_web_server.h>
 #include <supla/network/html/device_info.h>
 #include <supla/network/html/protocol_parameters.h>
