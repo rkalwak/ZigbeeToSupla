@@ -4,7 +4,7 @@
 #include "z2s_devices_table.h"
 #include <Z2S_control/z2s_virtual_relay.h>
 #include <supla/sensor/one_phase_electricity_meter.h>
-#include <z2s_sensor/z2s_one_phase_electricity_meter.h>
+#include <Z2S_sensor/z2s_one_phase_electricity_meter.h>
 
 #define Z2S_EM_VOLTAGE_SEL        0x0000
 #define Z2S_EM_CURRENT_SEL        0x0001
