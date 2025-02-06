@@ -11,7 +11,7 @@
 #include <supla/network/esp_wifi.h>
 #include "priv_auth_data.h"
 #include <supla/sensor/virtual_therm_hygro_meter.h>
-#include <Z2S_virtual_relay.h>
+#include <z2s_virtual_relay.h>
 #include <supla/sensor/one_phase_electricity_meter.h>
 #include <supla/sensor/virtual_binary.h>
 #include <z2s_devices_database.h>
