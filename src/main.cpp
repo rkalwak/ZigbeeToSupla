@@ -16,12 +16,16 @@
 #include <supla/sensor/virtual_binary.h>
 #include <z2s_devices_database.h>
 #include <supla/device/supla_ca_cert.h>
-#include <z2s_devices_table.h>
+#include "z2s_devices_table.h"
 #include <supla/network/esp_web_server.h>
 #include <supla/network/html/device_info.h>
 #include <supla/network/html/protocol_parameters.h>
 #include <supla/network/html/wifi_parameters.h>
 #include <supla/clock/clock.h>
+#include <supla/actions.h>
+#include <supla/control/button.h>
+#include <action_handler_with_callbacks.h>
+#include <supla/network/html/select_cmd_input_parameter.h>
 #define GATEWAY_ENDPOINT_NUMBER 1
 #undef USE_WEB_INTERFACE
 //#define USE_WEB_INTERFACE
@@ -34,6 +38,8 @@
 #include <supla/network/html/wifi_parameters.h>
 #include <supla/network/html/custom_text_parameter.h>
 #include <supla/network/html/custom_checkbox_parameter.h>
+#include <supla/network/html/text_cmd_input_parameter.h>
+#include <supla/network/html/select_cmd_input_parameter.h>
 
 Supla::EspWebServer                       suplaServer;
 
@@ -42,7 +48,8 @@ Supla::Html::WifiParameters               htmlWifi;
 Supla::Html::ProtocolParameters           htmlProto;
 
 #endif
-#define BUTTON_PIN 10 // Boot button for C6/H2
+#define BUTTON_PIN                  9  //Boot button for C6/H2
+#define CFG_BUTTON_PIN              9  //Boot button for C6/H2
 
 ZigbeeGateway zbGateway = ZigbeeGateway(GATEWAY_ENDPOINT_NUMBER);
 
@@ -57,11 +64,25 @@ uint32_t zbInit_delay = 0;
 bool zbInit = true;
 uint8_t write_mask;
 
+const static char PARAM_CMD1[] = "zigbeestack";
+
+void supla_callback_bridge(int event, int action) {
+  log_i("supla_callback_bridge - event(0x%x), action(0x%x)", event, action);
+  switch (event) {
+    case Supla::ON_EVENT_1:
+    case Supla::ON_CLICK_1: Zigbee.openNetwork(180); break;
+    case Supla::ON_EVENT_2:
+    case Supla::ON_CLICK_5: Zigbee.factoryReset(); break;
+    case Supla::ON_EVENT_3: 
+    case Supla::ON_HOLD: Z2S_clearDevicesTable(); break;
+  }
+}
+
 void setup()
 {
     log_i("setup start");
   Serial.begin(115200);
-  // pinMode(BUTTON_PIN, INPUT);
+   pinMode(BUTTON_PIN, INPUT);
  
   eeprom.setStateSavePeriod(5000);
 
@@ -84,7 +105,28 @@ void setup()
   cfg->setEmail(SUPLA_EMAIL);
 
 #endif
+auto selectCmd = new Supla::Html::SelectCmdInputParameter(PARAM_CMD1, "Z2S Commands");
+  selectCmd->registerCmd("OPEN ZIGBEE NETWORK (180 SECONDS)", Supla::ON_EVENT_1);
+  selectCmd->registerCmd("!RESET ZIGBEE STACK!", Supla::ON_EVENT_2);
+  selectCmd->registerCmd("!!CLEAR Z2S TABLE!! (RESET RECOMMENDED)", Supla::ON_EVENT_3);
+  
+  //selectCmd->registerCmd("TOGGLE", Supla::ON_EVENT_3);
 
+  auto AHwC = new Supla::ActionHandlerWithCallbacks();
+  AHwC->setActionHandlerCallback(supla_callback_bridge);
+  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_1, true);
+  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_2, true);
+  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_3, true);
+
+  auto buttonCfg = new Supla::Control::Button(CFG_BUTTON_PIN, true, true);
+
+  buttonCfg->setHoldTime(2000);
+  buttonCfg->setMulticlickTime(500);
+
+  buttonCfg->addAction(Supla::TURN_ON, AHwC, Supla::ON_CLICK_1);
+  buttonCfg->addAction(Supla::TURN_ON, AHwC, Supla::ON_CLICK_5);
+  buttonCfg->addAction(Supla::TURN_ON, AHwC, Supla::ON_HOLD);
+  
   Z2S_loadDevicesTable();
 
   Z2S_initSuplaChannels();
@@ -133,8 +175,6 @@ void setup()
 zb_device_params_t *gateway_device;
 zb_device_params_t *joined_device;
 
-char zbd_model_name[32];
-char zbd_manuf_name[32];
 uint8_t counter = 0;
 uint8_t tuya_dp_data[10];
 void loop()
@@ -234,6 +274,8 @@ SuplaDevice.iterate();
       Serial.println("Rebooting...");
       ESP.restart();
     }
+    SuplaDevice.handleAction(0, Supla::START_LOCAL_WEB_SERVER);
+
     zbInit = false;
     startTime = millis();
  }

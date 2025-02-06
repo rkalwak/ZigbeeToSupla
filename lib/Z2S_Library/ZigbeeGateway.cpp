@@ -16,6 +16,7 @@ uint16_t ZigbeeGateway::_clusters_2_bind = 0;
 uint8_t ZigbeeGateway::_binding_error_retries = 0;
 query_basic_cluster_data_t ZigbeeGateway::_last_device_query;
 uint8_t ZigbeeGateway::_read_attr_last_tsn = 0;
+uint8_t ZigbeeGateway::_read_attr_tsn_list[256];
 esp_zb_zcl_attribute_t ZigbeeGateway::_read_attr_last_result;
 //
 
@@ -33,6 +34,8 @@ ZigbeeGateway::ZigbeeGateway(uint8_t endpoint) : ZigbeeEP(endpoint) {
   _clusters_2_discover = 0;
   _attributes_2_discover = 0;
 
+  memset(_read_attr_tsn_list, 0, sizeof(_read_attr_tsn_list));
+  
   _joined_devices.clear();
   _gateway_devices.clear();
 
@@ -263,7 +266,7 @@ void ZigbeeGateway::zbPrintDeviceDiscovery (zb_device_params_t * device) {
   esp_zb_lock_release();
 }
 
-void ZigbeeGateway::zbQueryDeviceBasicCluster(zb_device_params_t * device) {
+bool ZigbeeGateway::zbQueryDeviceBasicCluster(zb_device_params_t * device) {
   
   esp_zb_zcl_read_attr_cmd_t read_req;
 
@@ -296,8 +299,10 @@ void ZigbeeGateway::zbQueryDeviceBasicCluster(zb_device_params_t * device) {
     //Wait for response or timeout
     if (xSemaphoreTake(gt_lock, ZB_CMD_TIMEOUT) != pdTRUE) {
       log_e("Error while querying basic cluster attribute 0x%x", attributes[attribute_number]);
+      if (attributes[attribute_number] == ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID) return false;
     }
-  } 
+  }
+  return true; 
 }
 
 void ZigbeeGateway::zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) {
@@ -576,14 +581,19 @@ void ZigbeeGateway::zbAttributeReporting(esp_zb_zcl_addr_t src_address, uint16_t
 void ZigbeeGateway::zbReadAttrResponse(uint8_t tsn, esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, const esp_zb_zcl_attribute_t *attribute) {
   
   //esp_zb_ieee_address_by_short(src_address.u.short_addr,src_address.u.ieee_addr);
-  if (tsn == _read_attr_last_tsn)
+  if ((_read_attr_tsn_list[tsn] == READ_ATTR_TSN_SYNC) && (tsn == _read_attr_last_tsn))
   {
-    log_i("zbReadAttrResponse tsn matched");
+    log_i("zbReadAttrResponse sync read, tsn matched");
     memcpy(&_read_attr_last_result, attribute, sizeof(const esp_zb_zcl_attribute_t));
     log_i("check 0x%x vs 0x%x", _read_attr_last_result.id, attribute->id);
+    _read_attr_tsn_list[tsn] = READ_ATTR_TSN_UNKNOWN;
     xSemaphoreGive(gt_lock);  
   }
-  
+  else 
+  {
+    log_i("zbReadAttrResponse async read, tsn 0x%x[0x%x]", tsn, _read_attr_tsn_list[tsn]);
+    zbAttributeReporting(src_address, src_endpoint, cluster_id, attribute);
+  }
   //zbAttributeReporting(src_address, src_endpoint, cluster_id, attribute);
   
 }
@@ -694,6 +704,10 @@ void ZigbeeGateway::readClusterReportCmd(zb_device_params_t * device, uint16_t c
   report_cmd.clusterID = cluster_id;
   report_cmd.attributeID = attribute_id;
 
+  report_cmd.manuf_specific = 0;
+  report_cmd.dis_defalut_resp = 0;
+  report_cmd.direction = 0;
+  report_cmd.manuf_code = 0;
 
   esp_zb_lock_acquire(portMAX_DELAY);
   esp_zb_zcl_report_attr_cmd_req(&report_cmd);
@@ -778,6 +792,8 @@ bool ZigbeeGateway::sendAttributeRead(zb_device_params_t * device, int16_t clust
     log_i("Sending 'read attribute' command");
     esp_zb_lock_acquire(portMAX_DELAY);
     _read_attr_last_tsn = esp_zb_zcl_read_attr_cmd_req(&read_req);
+    if (ack) _read_attr_tsn_list[_read_attr_last_tsn] = READ_ATTR_TSN_SYNC;
+    else _read_attr_tsn_list[_read_attr_last_tsn] = READ_ATTR_TSN_ASYNC;
     esp_zb_lock_release();
 
     if (ack && xSemaphoreTake(gt_lock, ZB_CMD_TIMEOUT) != pdTRUE) {
@@ -868,6 +884,31 @@ void ZigbeeGateway::setOnOffCluster(zb_device_params_t *device, bool value) {
     esp_zb_zcl_on_off_cmd_req(&cmd_req);
     esp_zb_lock_release();
 }
+
+void ZigbeeGateway::sendDeviceFactoryReset(zb_device_params_t *device) {
+
+    esp_zb_zcl_basic_fact_reset_cmd_t cmd_req;
+    
+    if (device->short_addr != 0) {
+      cmd_req.address_mode = ESP_ZB_APS_ADDR_MODE_16_ENDP_PRESENT;
+      cmd_req.zcl_basic_cmd.dst_addr_u.addr_short = device->short_addr;
+    } else {
+      cmd_req.address_mode = ESP_ZB_APS_ADDR_MODE_64_ENDP_PRESENT;
+      memcpy(cmd_req.zcl_basic_cmd.dst_addr_u.addr_long, device->ieee_addr, sizeof(esp_zb_ieee_addr_t));
+    }
+    cmd_req.zcl_basic_cmd.src_endpoint = _endpoint;
+    cmd_req.zcl_basic_cmd.dst_endpoint = device->endpoint;
+
+    //cmd_req.on_off_cmd_id = value ? ESP_ZB_ZCL_CMD_ON_OFF_ON_ID : ESP_ZB_ZCL_CMD_ON_OFF_OFF_ID;
+    //log_v(
+    //  "Sending ON/OFF command to ieee address %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", ieee_addr[7], ieee_addr[6], ieee_addr[5],
+    //  ieee_addr[4], ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0]
+    //); candidate for removal
+    esp_zb_lock_acquire(portMAX_DELAY);
+    esp_zb_zcl_basic_factory_reset_cmd_req(&cmd_req);
+    esp_zb_lock_release();
+}
+
 
 void ZigbeeGateway::zbCmdDefaultResponse( esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, uint8_t resp_to_cmd, esp_zb_zcl_status_t status_code) {
   if ((cluster_id == TUYA_PRIVATE_CLUSTER_EF00) && (resp_to_cmd = 0x00))

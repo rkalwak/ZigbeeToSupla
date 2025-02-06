@@ -171,6 +171,12 @@ bool Z2S_saveDevicesTable() {
   Supla::Storage::ConfigInstance()->commit();
 }
 
+void Z2S_clearDevicesTable() {
+  log_i("Clear devices table");
+  memset(z2s_devices_table,0,sizeof(z2s_devices_table));
+  Z2S_saveDevicesTable();
+}
+
 void Z2S_initSuplaChannels(){
 
   log_i ("initSuplaChannels starting");
@@ -365,7 +371,26 @@ int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, clu
 
 void Z2S_onBTCBoundDevice(zb_device_params_t *device) {
     log_i("BTC bound device 0x%x on endpoint 0x%x cluster id 0x%x", device->short_addr, device->endpoint, device->cluster_id );
-  //zbGateway.zbQueryDeviceBasicCluster(device);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, SUPLA_CHANNELTYPE_RELAY, NO_CUSTOM_CMD_SID);
+  if (channel_number_slot < 0)
+    log_i("No channel found for address %s", device->ieee_addr);
+  else
+  while (channel_number_slot >= 0)
+  {
+    auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
+    if (element) {
+      //auto Supla_VirtualRelay = reinterpret_cast<Supla::Control::Z2S_VirtualRelay *>(element);
+      //bool state;
+      zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, false);
+      //{
+      //  state = *((bool *)zbGateway.getReadAttrLastResult()->data.value);
+      //  if (state) Supla_VirtualRelay->turnOn();
+      //  else Supla_VirtualRelay->turnOff();
+      //}
+    }
+    //zbGateway.readClusterReportCmd(device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, false);
+    channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, device->ieee_addr, device->endpoint, device->cluster_id, SUPLA_CHANNELTYPE_RELAY, NO_CUSTOM_CMD_SID);
+  } 
 }
 
 
@@ -409,7 +434,6 @@ void Z2S_addZ2SDevice(zb_device_params_t *device, int8_t sub_id) {
       case Z2S_DEVICE_DESC_SWITCH_4X3: {
         //auto Supla_Z2S_VirtualRelay = new Supla::Control::VirtualRelay();
         auto Supla_Z2S_VirtualRelay = new Supla::Control::VirtualRelaySceneSwitch((0xFF ^ SUPLA_BIT_FUNC_CONTROLLINGTHEROLLERSHUTTER), ZG_SCENE_SWITCH_DEBOUNCE_TIME_MS);
-        Supla_Z2S_VirtualRelay->setDefaultFunction(SUPLA_CHANNELFNC_POWERSWITCH);
         char button_name_function[30];
         char button_function[][15] = {"pressed", "double pressed","held"};
         sprintf(button_name_function, "button #%d %s", device->endpoint, button_function[sub_id]);

@@ -41,6 +41,11 @@
 #define ON_OFF_CUSTOM_CMD_BUTTON_ROTATE_RIGHT_ID      0x0A
 #define ON_OFF_CUSTOM_CMD_BUTTON_ROTATE_LEFT_ID       0x0B
 
+#define READ_ATTR_TSN_UNKNOWN 0x00
+#define READ_ATTR_TSN_SYNC    0x01
+#define READ_ATTR_TSN_ASYNC   0x02
+
+
 #define ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID 0x0021
 
 typedef struct findcb_userdata_s {
@@ -103,7 +108,7 @@ public:
   void zbPrintDeviceDiscovery (zb_device_params_t * device);
   static void bindDeviceCluster(zb_device_params_t *,int16_t cluster_id);
 
-  void zbQueryDeviceBasicCluster(zb_device_params_t * device);
+  bool zbQueryDeviceBasicCluster(zb_device_params_t * device);
   void zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) override;
   void setClusterReporting(zb_device_params_t * device, uint16_t cluster_id, uint16_t attribute_id, uint8_t attribute_type,
                                         uint16_t min_interval, uint16_t max_interval, uint16_t delta, bool ack);
@@ -115,6 +120,7 @@ public:
                                         esp_zb_zcl_attr_type_t attribute_type, uint16_t attribute_size, void *attribute_value);
   void sendIASzoneEnrollResponseCmd(zb_device_params_t *device, uint8_t enroll_rsp_code, uint8_t zone_id);
   void setOnOffCluster(zb_device_params_t *device, bool value);
+  void sendDeviceFactoryReset(zb_device_params_t *device);
   void sendCustomClusterCmd(zb_device_params_t * device, int16_t custom_cluster_id, uint16_t custom_command_id, uint16_t custom_data_size, uint8_t *custom_data, bool ack = false);
 
   
@@ -180,6 +186,8 @@ private:
   static query_basic_cluster_data_t _last_device_query;
 
   static uint8_t _read_attr_last_tsn;
+  static uint8_t _read_attr_tsn_list[256];
+  //static bool _read_attr_async;
   static esp_zb_zcl_attribute_t _read_attr_last_result;
 
   void (*_on_IAS_zone_status_change_notification)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, int);
