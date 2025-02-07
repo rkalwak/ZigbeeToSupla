@@ -1,4 +1,4 @@
-#include "Z2S_virtual_relay_scene_switch.h"
+#include "z2s_virtual_relay_scene_switch.h"
 
 #include <supla/log_wrapper.h>
 
