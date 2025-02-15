@@ -15,7 +15,7 @@
 */
 //#ifdef Z2S_GATEWAY
 
-#include "Z2S_virtual_relay.h"
+#include "z2s_virtual_relay.h"
 
 #include <supla/log_wrapper.h>
 
