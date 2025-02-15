@@ -16,36 +16,38 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-//#ifdef Z2S_GATEWAY
+#ifndef SRC_SUPLA_CONTROL_Z2S_TUYA_DIMMER_SWITCH_H_
+#define SRC_SUPLA_CONTROL_Z2S_TUYA_DIMMER_SWITCH_H_
 
-#ifndef SRC_SUPLA_CONTROL_Z2S_VIRTUAL_RELAY_H_
-#define SRC_SUPLA_CONTROL_Z2S_VIRTUAL_RELAY_H_
-
-#include <supla/control/relay.h>
+#include "Z2S_dimmer_base.h"
 #include "ZigbeeGateway.h"
+
 
 namespace Supla {
 namespace Control {
-class Z2S_VirtualRelay : public Relay {
- public:
-  Z2S_VirtualRelay(ZigbeeGateway *gateway, zbg_device_params_t *device, _supla_int_t functions =
-                   (0xFF ^ SUPLA_BIT_FUNC_CONTROLLINGTHEROLLERSHUTTER));
+class Z2S_TuyaDimmerSwitch: public Z2S_DimmerBase {
 
-  void onInit() override;
-  void turnOn(_supla_int_t duration = 0) override;
-  void turnOff(_supla_int_t duration = 0) override;
-  void Z2S_setOnOff(bool on_off_state);
+public:
+
+  Z2S_TuyaDimmerSwitch(ZigbeeGateway *gateway, zbg_device_params_t *device);
+
+  void turnOn() override;
+  void turnOff() override;
+  void toggle() override;
   bool isOn() override;
+  
+  //void onInit() override;
 
- protected:
-  bool state = false;
+  void sendValueToDevice(uint32_t brightness) override;
+
+protected:
+  bool _state = false;
   ZigbeeGateway *_gateway = nullptr;
   zbg_device_params_t 	_device;
- 
+
 };
 
-};  // namespace Control
-};  // namespace Supla
+} //Control
+}//Supla
 
-#endif  // SRC_SUPLA_CONTROL_Z2S_VIRTUAL_RELAY_H_
-//#endif  // #ifdef Z2S_GATEWAY
+#endif
