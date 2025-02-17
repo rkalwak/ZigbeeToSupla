@@ -3,7 +3,7 @@
 
 #include "z2s_devices_table.h"
 //#include <supla/control/virtual_relay.h>
-#include <Z2S_control/Z2S_virtual_relay.h>
+#include <Z2S_control/z2s_virtual_relay.h>
 
 
 void initZ2SDeviceVirtualRelay(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_t Supla_channel);
