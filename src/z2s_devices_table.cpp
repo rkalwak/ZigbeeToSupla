@@ -13,8 +13,8 @@
 
 #include <supla/control/virtual_relay.h>
 
-#include <Z2S_control/Z2S_virtual_relay.h>
-#include <Z2S_control/Z2S_virtual_relay_scene_switch.h>
+#include <Z2S_control/z2s_virtual_relay.h>
+#include <Z2S_control/z2s_virtual_relay_scene_switch.h>
 #include <supla/tools.h>
 
 
