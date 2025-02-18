@@ -106,7 +106,8 @@ public:
   static void bindDeviceCluster(zbg_device_params_t *,int16_t cluster_id);
 
   bool zbQueryDeviceBasicCluster(zbg_device_params_t * device);
-  void zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) override;
+  //void zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) override;
+  void zbReadBasicCluster(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, esp_zb_zcl_attribute_t *attribute) override;
   void setClusterReporting(zbg_device_params_t * device, uint16_t cluster_id, uint16_t attribute_id, uint8_t attribute_type,
                                         uint16_t min_interval, uint16_t max_interval, uint16_t delta, bool ack);
   void readClusterReportCmd(zbg_device_params_t * device, uint16_t cluster_id, uint16_t attribute_id, bool ack);
@@ -128,7 +129,7 @@ public:
 
   void sendDeviceFactoryReset(zbg_device_params_t *device, bool isTuya = false);
   void sendCustomClusterCmd(zbg_device_params_t * device, int16_t custom_cluster_id, uint16_t custom_command_id, esp_zb_zcl_attr_type_t data_type, 
-                            uint16_t custom_data_size, uint8_t *custom_data, bool ack = false);
+                            uint16_t custom_data_size, uint8_t *custom_data, bool ack = false, uint8_t direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV);
 
   
   void onIASzoneStatusChangeNotification (void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, int, signed char rssi)) {

@@ -172,6 +172,8 @@ void setup()
   zbGateway.onRMSActivePowerReceive(Z2S_onRMSActivePowerReceive);
   zbGateway.onCurrentSummationReceive(Z2S_onCurrentSummationReceive);
   zbGateway.onCurrentLevelReceive(Z2S_onCurrentLevelReceive);
+  zbGateway.onColorHueReceive(Z2S_onColorHueReceive);
+  zbGateway.onColorSaturationReceive(Z2S_onColorSaturationReceive);
   zbGateway.onBatteryPercentageReceive(Z2S_onBatteryPercentageReceive);
   zbGateway.onOnOffCustomCmdReceive(Z2S_onOnOffCustomCmdReceive);
   zbGateway.onCustomCmdReceive(Z2S_onCustomCmdReceive);
@@ -182,6 +184,7 @@ void setup()
 
   zbGateway.onBoundDevice(Z2S_onBoundDevice);
   zbGateway.onBTCBoundDevice(Z2S_onBTCBoundDevice);
+
 
   zbGateway.setManufacturerAndModel("Supla", "Z2SGateway");
   zbGateway.allowMultipleBinding(true);

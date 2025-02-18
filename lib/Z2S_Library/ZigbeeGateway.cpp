@@ -286,7 +286,11 @@ bool ZigbeeGateway::zbQueryDeviceBasicCluster(zbg_device_params_t * device) {
                               ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,ESP_ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID, 
                               0xFFFE};
   
-  for (int attribute_number = 0; attribute_number <6; attribute_number++) {
+  /*uint16_t attributes[6] = {  ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID,ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, 
+                              ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,ESP_ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID, 
+                              0xFFFE};*/
+  
+  for (int attribute_number = 0; attribute_number < 6; attribute_number++) {
     
     read_req.attr_number = 1; //ZB_ARRAY_LENTH(attributes);
     read_req.attr_field = &attributes[attribute_number];
@@ -317,7 +321,8 @@ bool ZigbeeGateway::zbQueryDeviceBasicCluster(zbg_device_params_t * device) {
   return true; 
 }
 
-void ZigbeeGateway::zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) {
+//void ZigbeeGateway::zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) {
+void ZigbeeGateway::zbReadBasicCluster(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, esp_zb_zcl_attribute_t *attribute) {
   /* Basic cluster attributes */
   if (attribute->id == ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_CHAR_STRING && attribute->data.value) {
     zbstring_t *zbstr = (zbstring_t *)attribute->data.value;
@@ -356,6 +361,12 @@ void ZigbeeGateway::zbReadBasicCluster(const esp_zb_zcl_attribute_t *attribute) 
     //_last_device_query.zcl_power_source_id = *((uint8_t*)attribute->data.value);
     //log_i("ZCL power source id is \"%d\"", _last_device_query.zcl_power_source_id;
     xSemaphoreGive(gt_lock);
+  }
+  if (attribute->id == 0xFFE2 && attribute->data.type == ESP_ZB_ZCL_ATTR_TYPE_U8 && attribute->data.value) {
+    uint8_t value = attribute->data.value ? *(uint8_t *)attribute->data.value : 0;
+    log_i("Tuya 0xFFE2 attribute report value",value);
+    //if (_on_battery_percentage_receive)
+    //  _on_battery_percentage_receive(src_address.u.ieee_addr, src_endpoint, cluster_id, value / 2);
   }
 }
 
@@ -1155,7 +1166,7 @@ void ZigbeeGateway::zbCmdDefaultResponse( esp_zb_zcl_addr_t src_address, uint16_
 }
 
 void ZigbeeGateway::sendCustomClusterCmd( zbg_device_params_t * device, int16_t custom_cluster_id, uint16_t custom_command_id, esp_zb_zcl_attr_type_t data_type, 
-                                          uint16_t custom_data_size, uint8_t *custom_data, bool ack ) {
+                                          uint16_t custom_data_size, uint8_t *custom_data, bool ack, uint8_t direction ) {
   
   esp_zb_zcl_custom_cluster_cmd_req_t req;
 
@@ -1170,7 +1181,7 @@ void ZigbeeGateway::sendCustomClusterCmd( zbg_device_params_t * device, int16_t 
   req.zcl_basic_cmd.src_endpoint = _endpoint;
   req.cluster_id = custom_cluster_id;
   req.profile_id = ESP_ZB_AF_HA_PROFILE_ID;
-  req.direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV;
+  req.direction = direction;
   req.manuf_specific = 0;
   req.dis_defalut_resp = 0;
   req.manuf_code = 0;
