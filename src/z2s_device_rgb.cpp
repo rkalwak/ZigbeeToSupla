@@ -49,11 +49,12 @@ void msgZ2SDeviceRGB(uint32_t model_id, uint8_t Supla_channel, uint8_t hue, uint
           else last_hue_value = hue;
           hue_saturation_counter++;
           if ((hue_saturation_counter % 2) == 0)
+          {
             Supla_Z2S_TuyaRGBBulb->setValueOnServer(last_hue_value, last_saturation_value);
             Supla_Z2S_TuyaRGBBulb->getChannel()->setBridgeSignalStrength(Supla::rssiToSignalStrength(rssi));
+          }
         }  
-        break;
-      }
+      } break;
     }
   }
 }

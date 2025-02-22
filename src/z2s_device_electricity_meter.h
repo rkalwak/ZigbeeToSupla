@@ -2,9 +2,9 @@
 #define Z2S_DEVICE_ELECTRICITY_METER_H_
 
 #include "z2s_devices_table.h"
-#include <Z2S_control/z2s_virtual_relay.h>
+#include <Z2S_control/Z2S_virtual_relay.h>
 #include <supla/sensor/one_phase_electricity_meter.h>
-#include <Z2S_sensor/z2s_one_phase_electricity_meter.h>
+#include <Z2S_sensor/Z2S_one_phase_electricity_meter.h>
 
 #define Z2S_EM_VOLTAGE_SEL        0x0000
 #define Z2S_EM_CURRENT_SEL        0x0001
@@ -12,10 +12,10 @@
 #define Z2S_ACT_FWD_ENERGY_SEL    0x0003
 
 
-void initZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *device, bool isTuya, bool active_query, uint8_t Supla_channel);
+void initZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *device, int16_t channel_number_slot);
 
 void addZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *device, bool isTuya, bool active_query, uint8_t free_slot);
 
-void msgZ2SDeviceElectricityMeter(uint8_t Supla_channel, uint8_t selector, uint64_t value, signed char rssi);
+void msgZ2SDeviceElectricityMeter(int16_t channel_number_slot, uint8_t selector, uint64_t value, signed char rssi);
 
 #endif

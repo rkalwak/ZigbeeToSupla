@@ -8,7 +8,6 @@
 #include <Z2S_control/hvac_base_ee.h>
 #include <Z2S_control/Z2S_Tuya_thermostat.h>
 
-
 void initZ2SDeviceTuyaHvac(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_t Supla_channel) {
   
   auto Tuya_Hvac = new Supla::Control::Z2S_TuyaThermostat();

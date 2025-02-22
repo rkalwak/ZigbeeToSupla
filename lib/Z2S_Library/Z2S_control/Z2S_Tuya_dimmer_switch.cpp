@@ -102,7 +102,7 @@ void Supla::Control::Z2S_TuyaDimmerSwitch::toggle() {
 }
 
 bool Supla::Control::Z2S_TuyaDimmerSwitch::isOn() {
-  return false;
+return true;
 }
 
 void Supla::Control::Z2S_TuyaDimmerSwitch::sendValueToDevice(uint32_t brightness) {
