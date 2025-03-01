@@ -74,7 +74,7 @@ void Supla::Control::Z2S_RGBWLightSource::setRGBWValueOnDevice(uint32_t red,
     log_i("Supla::Control::Z2S_RGBWLightSource::setRGBWValueOnDevice: red 0x%x, green 0x%x, blue 0x%x, color brightness 0x%x, brightness 0x%x",
           red, green, blue, colorBrightness, brightness);
     
-  }
+   }
 }
 
 

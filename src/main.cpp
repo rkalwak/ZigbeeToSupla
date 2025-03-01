@@ -67,30 +67,64 @@ uint16_t write_mask_16;
 const static char PARAM_CMD1[] = "zigbeestack";
 const static char PARAM_CMD2[] = "Z2S devices";
 
-void supla_callback_bridge(int event, int action)
-{
-  log_i("supla_callback_bridge - event(0x%x), action(0x%x)", event, action);
-  switch (event)
-  {
-  case Supla::ON_EVENT_1:
-  case Supla::ON_CLICK_1:
-    Zigbee.openNetwork(180);
-    break;
-  case Supla::ON_EVENT_2:
-  case Supla::ON_CLICK_5:
-    Zigbee.factoryReset();
-    break;
-  case Supla::ON_EVENT_3:
-  case Supla::ON_CLICK_10:
-    Z2S_clearDevicesTable();
-    break;
+void Z2S_nwk_scan_neighbourhood() {
+
+  esp_zb_nwk_neighbor_info_t nwk_neighbour;
+  esp_zb_nwk_info_iterator_t nwk_iterator = 0;
+  esp_err_t scan_result;
+  //esp_zb_lock_acquire(portMAX_DELAY);
+  scan_result = esp_zb_nwk_get_next_neighbor(&nwk_iterator, &nwk_neighbour);
+  //esp_zb_lock_release();
+
+  if (scan_result == ESP_ERR_NOT_FOUND)
+    log_i("Z2S_nwk_scan_neighbourhood scan empty :-(  ");
+  while (scan_result == ESP_OK) {
+    log_i("Scan neighbour record(0x%x), IEEE address(0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x), short address(0x%x), depth(0x%x),\
+          RX_ON_WHEN_IDLE(0x%x), relationship(0x%x), lqi(%d), rssi(%d), outgoing cost(0x%x), age(0x%x), device timeout(%d),\
+          timeout counter(%d)", 
+        nwk_iterator, 
+        nwk_neighbour.ieee_addr[7], nwk_neighbour.ieee_addr[6], nwk_neighbour.ieee_addr[5], nwk_neighbour.ieee_addr[4], 
+        nwk_neighbour.ieee_addr[3], nwk_neighbour.ieee_addr[2], nwk_neighbour.ieee_addr[1], nwk_neighbour.ieee_addr[0],
+        nwk_neighbour.short_addr, nwk_neighbour.depth, nwk_neighbour.rx_on_when_idle, nwk_neighbour.relationship,
+        nwk_neighbour.lqi, nwk_neighbour.rssi, nwk_neighbour.outgoing_cost, nwk_neighbour.age, nwk_neighbour.device_timeout,
+        nwk_neighbour.timeout_counter);
+        
+        int16_t channel_number_slot = Z2S_findChannelNumberSlot(nwk_neighbour.ieee_addr, -1, 0, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
+        if (channel_number_slot < 0)
+          log_i("Z2S_nwk_scan_neighbourhood - no channel found for address 0x%x", nwk_neighbour.short_addr);
+        else
+          while (channel_number_slot >= 0) {
+            auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
+            if (element) 
+              element->getChannel()->setBridgeSignalStrength(Supla::rssiToSignalStrength(nwk_neighbour.rssi));
+            channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, nwk_neighbour.ieee_addr, -1, 0, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
+          }
+    //esp_zb_lock_acquire(portMAX_DELAY);      
+    scan_result = esp_zb_nwk_get_next_neighbor(&nwk_iterator, &nwk_neighbour);
+    //esp_zb_lock_release();
   }
-  if (event >= Supla::ON_EVENT_4)
-  {
-    z2s_devices_table[event - Supla::ON_EVENT_4].valid_record = false;
-    if (Z2S_saveDevicesTable())
-    {
-      log_i("Device on channel %d removed. Restarting...", z2s_devices_table[event - Supla::ON_EVENT_4].Supla_channel);
+  if (scan_result == ESP_ERR_INVALID_ARG)
+    log_i("Z2S_nwk_scan_neighbourhood error ESP_ERR_INVALID_ARG");
+  if (scan_result == ESP_ERR_NOT_FOUND)
+    log_i("Z2S_nwk_scan_neighbourhood scan completed");
+}
+
+
+void supla_callback_bridge(int event, int action) {
+  log_i("supla_callback_bridge - event(0x%x), action(0x%x)", event, action);
+  switch (event) {
+    case Supla::ON_EVENT_1:
+    case Supla::ON_CLICK_1: Zigbee.openNetwork(ZG_OPEN_NETWORK); break;
+    case Supla::ON_EVENT_2:
+    case Supla::ON_CLICK_5: Zigbee.factoryReset(); break;
+    case Supla::ON_EVENT_3: 
+    case Supla::ON_CLICK_10: Z2S_clearDevicesTable(); break;
+    case Supla::ON_EVENT_4: Z2S_nwk_scan_neighbourhood(); break;
+  }
+  if (event >= Supla::ON_EVENT_5) {
+    z2s_devices_table[event - Supla::ON_EVENT_5].valid_record = false;
+    if (Z2S_saveDevicesTable()) {
+      log_i("Device on channel %d removed. Restarting...", z2s_devices_table[event - Supla::ON_EVENT_5].Supla_channel);
       SuplaDevice.scheduleSoftRestart(1000);
     }
   }
@@ -134,6 +168,7 @@ void setup()
   selectCmd->registerCmd("OPEN ZIGBEE NETWORK (180 SECONDS)", Supla::ON_EVENT_1);
   selectCmd->registerCmd("!RESET ZIGBEE STACK!", Supla::ON_EVENT_2);
   selectCmd->registerCmd("!!CLEAR Z2S TABLE!! (RESET RECOMMENDED)", Supla::ON_EVENT_3);
+  selectCmd->registerCmd("NWK SCAN (EXPERIMENTAL)", Supla::ON_EVENT_4);
 
   // selectCmd->registerCmd("TOGGLE", Supla::ON_EVENT_3);
 
@@ -142,6 +177,7 @@ void setup()
   selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_1, true);
   selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_2, true);
   selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_3, true);
+  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_4, true);
 
   auto buttonCfg = new Supla::Control::Button(CFG_BUTTON_PIN, true, true);
 
@@ -176,6 +212,7 @@ void setup()
   zbGateway.onTemperatureReceive(Z2S_onTemperatureReceive);
   zbGateway.onHumidityReceive(Z2S_onHumidityReceive);
   zbGateway.onIlluminanceReceive(Z2S_onIlluminanceReceive);
+  zbGateway.onOccupancyReceive(Z2S_onOccupancyReceive);
   zbGateway.onOnOffReceive(Z2S_onOnOffReceive);
   zbGateway.onRMSVoltageReceive(Z2S_onRMSVoltageReceive);
   zbGateway.onRMSCurrentReceive(Z2S_onRMSCurrentReceive);
@@ -185,13 +222,11 @@ void setup()
   zbGateway.onColorHueReceive(Z2S_onColorHueReceive);
   zbGateway.onColorSaturationReceive(Z2S_onColorSaturationReceive);
   zbGateway.onBatteryPercentageReceive(Z2S_onBatteryPercentageReceive);
-  zbGateway.onOnOffCustomCmdReceive(Z2S_onOnOffCustomCmdReceive);
   zbGateway.onCustomCmdReceive(Z2S_onCustomCmdReceive);
 
   zbGateway.onCmdCustomClusterReceive(Z2S_onCmdCustomClusterReceive);
 
   zbGateway.onIASzoneStatusChangeNotification(Z2S_onIASzoneStatusChangeNotification);
-
   zbGateway.onBoundDevice(Z2S_onBoundDevice);
   zbGateway.onBTCBoundDevice(Z2S_onBTCBoundDevice);
 
@@ -229,7 +264,6 @@ uint8_t counter = 0;
 uint8_t tuya_dp_data[10];
 void loop()
 {
-
   SuplaDevice.iterate();
 
   if ((!Zigbee.started()) && SuplaDevice.getCurrentStatus() == STATUS_REGISTERED_AND_READY) {
@@ -254,111 +288,12 @@ void loop()
       log_i("Device on endpoint(0x%x), short address(0x%x), model id(0x%x), rejoined(%s)", device->endpoint, device->short_addr, device->model_id,
             device->rejoined ? "YES" : "NO");
 
-      if ((device->model_id == Z2S_DEVICE_DESC_TUYA_2GANG_SWITCH_1)) { //} && (device->endpoint == 1)) {
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, false);
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, false);
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, false);
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, false);
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, ESP_ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID, false);
-        zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_BASIC, 0xFFFE, false);
-      }   
-      if ((device->rejoined) && (device->model_id == Z2S_DEVICE_DESC_TUYA_HVAC_6567C)) {
-        zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x03, ESP_ZB_ZCL_ATTR_TYPE_SET, 0, NULL);
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x03;
-          tuya_dp_data[2] = 0x65; 
-          tuya_dp_data[3] = 0x01;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0X01;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-          delay(3000);
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x04;
-          tuya_dp_data[2] = 0x6C;
-          tuya_dp_data[3] = 0x01;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x00; 
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data); 
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x05;
-          tuya_dp_data[2] = 0x28; 
-          tuya_dp_data[3] = 0x01;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x00;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-         /* tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x06;
-          tuya_dp_data[2] = 0x14; //TUYA_6567C_SCHEDULE_SET_DP;
-          tuya_dp_data[3] = 0x01;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x01;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x07;
-          tuya_dp_data[2] = 0x2C; //TUYA_6567C_LOCAL_TEMPERATURE_DP;//TUYA_6567C_CURRENT_HEATING_SETPOINT_DP;
-          tuya_dp_data[3] = 0x02;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x04;
-          tuya_dp_data[6] = 0x00;
-          tuya_dp_data[7] = 0x00;
-          tuya_dp_data[8] = 0x00;
-          tuya_dp_data[9] = 0x00; //random(15, 24) * 10;
-          
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 10, tuya_dp_data);*/
-          
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x05;
-          tuya_dp_data[2] = 0x1B; //TUYA_6567C_LOCAL_TEMPERATURE_DP;//TUYA_6567C_CURRENT_HEATING_SETPOINT_DP;
-          tuya_dp_data[3] = 0x02;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x04;
-          tuya_dp_data[6] = 0x00;
-          tuya_dp_data[7] = 0x00;
-          tuya_dp_data[8] = 0x00;
-          tuya_dp_data[9] = 0x00;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 10, tuya_dp_data);
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x08;
-          tuya_dp_data[2] = 0x6D; //TUYA_6567C_LOCAL_TEMPERATURE_DP;//TUYA_6567C_CURRENT_HEATING_SETPOINT_DP;
-          tuya_dp_data[3] = 0x04;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x00;
-          tuya_dp_data[7] = 0x00;
-          tuya_dp_data[8] = 0x00;
-          tuya_dp_data[9] = 0x00;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x09;
-          tuya_dp_data[2] = 0x6D; //TUYA_6567C_LOCAL_TEMPERATURE_DP;//TUYA_6567C_CURRENT_HEATING_SETPOINT_DP;
-          tuya_dp_data[3] = 0x04;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x01;
-          tuya_dp_data[7] = 0x00;
-          tuya_dp_data[8] = 0x00;
-          tuya_dp_data[9] = 50;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-          tuya_dp_data[0] = 0x00;
-          tuya_dp_data[1] = 0x0A;
-          tuya_dp_data[2] = 0x6D; //TUYA_6567C_LOCAL_TEMPERATURE_DP;//TUYA_6567C_CURRENT_HEATING_SETPOINT_DP;
-          tuya_dp_data[3] = 0x04;
-          tuya_dp_data[4] = 0x00;
-          tuya_dp_data[5] = 0x01;
-          tuya_dp_data[6] = 0x02;
-          tuya_dp_data[7] = 0x00;
-          tuya_dp_data[8] = 0x00;
-          tuya_dp_data[9] = 100;
-          zbGateway.sendCustomClusterCmd(device, TUYA_PRIVATE_CLUSTER_EF00, 0x00, ESP_ZB_ZCL_ATTR_TYPE_SET, 7, tuya_dp_data);
-      }
       if ((device->model_id >= Z2S_DEVICE_DESC_LIGHT_SOURCE) && (device->model_id < Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F)) {//TODO change it to some kind of function
+        
         bool is_online = zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, true); 
+        
         int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
+        
         if (channel_number_slot < 0)
           log_i("No channel found for address %s", device->ieee_addr);
         else
@@ -367,9 +302,9 @@ void loop()
           if (element) { 
             if (is_online) {
               zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, false);
-              element->getChannel()->setOnline();
+              element->getChannel()->setStateOnline();
             }
-            else element->getChannel()->setOffline();
+            else element->getChannel()->setStateOffline();
           }
           channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, device->ieee_addr, device->endpoint, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
         }  
@@ -454,7 +389,17 @@ void loop()
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_DOUBLE_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_HELD_SID);
-                           } break; 
+                          } break;
+                          
+                          case Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3: {
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_1_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_1_DOUBLE_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_1_HELD_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_2_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_2_DOUBLE_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_2_HELD_SID);
+                           } break;
+
                           case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F: {
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_DOUBLE_PRESSED_SID);
@@ -462,15 +407,18 @@ void loop()
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_ROTATE_RIGHT_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_ROTATE_LEFT_SID);
                           } break;
+
                           case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_3F: {
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_DOUBLE_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_HELD_SID);
                           } break;
+
                           case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_2F: {
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_CUSTOM_CMD_BUTTON_DOUBLE_PRESSED_SID);
                           } break;
+
                           case Z2S_DEVICE_DESC_IKEA_SMART_BUTTON: {
                             Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_1_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_1_HELD_SID);
@@ -481,14 +429,42 @@ void loop()
                             Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_4_PRESSED_SID);
                             Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_4_HELD_SID);
                           } break;
+                          case Z2S_DEVICE_DESC_IKEA_SMART_BUTTON_2F: {
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_1_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_1_HELD_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_2_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_BUTTON_2_HELD_SID);
+                          } break;
+                          case Z2S_DEVICE_DESC_IKEA_SYMFONISK_GEN_1:
+                          case Z2S_DEVICE_DESC_IKEA_SYMFONISK_GEN_2_1: {
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_PLAY_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_VOLUME_UP_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_VOLUME_DOWN_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_NEXT_TRACK_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_PREV_TRACK_SID);
+                          } break;
+                          case Z2S_DEVICE_DESC_IKEA_SYMFONISK_GEN_2_2: {
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOT_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOT_SHORT_RELEASED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOT_HELD_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOT_LONG_RELEASED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOT_DOUBLE_PRESSED_SID);
+                          } break;
+                          case Z2S_DEVICE_DESC_IKEA_SYMFONISK_GEN_2_3: {
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOTS_PRESSED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOTS_SHORT_RELEASED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOTS_HELD_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOTS_LONG_RELEASED_SID);
+                            Z2S_addZ2SDevice(joined_device, IKEA_CUSTOM_CMD_SYMFONISK_DOTS_DOUBLE_PRESSED_SID);
+                          } break;
                           case Z2S_DEVICE_DESC_TUYA_DIMMER_DOUBLE_SWITCH: {
-                            Z2S_addZ2SDevice(joined_device, 1);
-                            Z2S_addZ2SDevice(joined_device, 2);
+                            Z2S_addZ2SDevice(joined_device, TUYA_DOUBLE_DIMMER_SWITCH_1_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_DOUBLE_DIMMER_SWITCH_2_SID);
                           } break;
                           case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR: {
-                            Z2S_addZ2SDevice(joined_device, 0x01);
-                            Z2S_addZ2SDevice(joined_device, 0x65);
-                            Z2S_addZ2SDevice(joined_device, 0x6A);
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_PRESENCE_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_MOTION_STATE_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_ILLUMINANCE_SID);
                           } break;
                           default: Z2S_addZ2SDevice(joined_device, NO_CUSTOM_CMD_SID); 
                         }

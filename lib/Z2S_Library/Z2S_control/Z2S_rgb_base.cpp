@@ -61,7 +61,7 @@ int32_t Supla::Control::Z2S_RGBBase::handleNewValueFromServer(TSD_SuplaChannelNe
       log_i("Supla::Control::Z2S_RGBBase::handleNewValueFromServer - turnOn");
       colorBrightness = _last_svr_colorBrightness;
       turnOn(); 
-    }
+   }
    else 
      if (colorBrightness > 0) _last_svr_colorBrightness = colorBrightness;
     log_i("Supla::Control::Z2S_RGBBase::handleNewValueFromServer -> sendValueToDevice");

@@ -1,13 +1,13 @@
 #ifndef Z2S_VERSION_INFO_H_
 #define Z2S_VERSION_INFO_H_
 
-#define Z2S_VERSION "0.2.6-22/02/2025"
+#define Z2S_VERSION "0.4.1-28/02/2025"
 
 namespace Supla {
 namespace Html {
 
 class CustomDevInfo : public Supla::HtmlElement {
- public:
+ public:  
   CustomDevInfo() : HtmlElement(HTML_SECTION_DEVICE_INFO) {}
 
   void send(Supla::WebSender* sender) {
