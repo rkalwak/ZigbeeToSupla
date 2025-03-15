@@ -9,6 +9,7 @@
 #include "z2s_device_rgb.h"
 #include "z2s_device_rgbw.h"
 #include "z2s_device_temphumidity.h"
+#include "z2s_device_pressure.h"
 #include "z2s_device_tuya_custom_cluster.h"
 #include "z2s_device_general_purpose_measurement.h"
 #include "z2s_device_action_trigger.h"
@@ -49,14 +50,26 @@ void Z2S_printDevicesTableSlots() {
 
   for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) 
     if (z2s_devices_table[devices_counter].valid_record)
-      log_i("valid %d, ieee addr %s, model_id 0x%x, endpoint 0x%x, cluster 0x%x, channel %d, channel type %d",
+      log_i("valid %d, ieee addr 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x,\nmodel_id 0x%x, endpoint 0x%x, cluster 0x%x,\
+            channel %d, secondary channel %d, channel type %d,\n\
+            channel name %s, channel func %d, sub id %d,\n\
+            user data 1 %d, user data 2 %d",
         z2s_devices_table[devices_counter].valid_record,
-        z2s_devices_table[devices_counter].ieee_addr,
+        z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], 
+        z2s_devices_table[devices_counter].ieee_addr[5], z2s_devices_table[devices_counter].ieee_addr[4], 
+        z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2], 
+        z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0],
         z2s_devices_table[devices_counter].model_id,
         z2s_devices_table[devices_counter].endpoint,
         z2s_devices_table[devices_counter].cluster_id,
         z2s_devices_table[devices_counter].Supla_channel,
-        z2s_devices_table[devices_counter].Supla_channel_type);  
+        z2s_devices_table[devices_counter].Supla_secondary_channel,
+        z2s_devices_table[devices_counter].Supla_channel_type,
+        z2s_devices_table[devices_counter].Supla_channel_name,
+        z2s_devices_table[devices_counter].Supla_channel_func,
+        z2s_devices_table[devices_counter].sub_id,
+        z2s_devices_table[devices_counter].user_data_1,
+        z2s_devices_table[devices_counter].user_data_2);  
 }
 
 
@@ -101,7 +114,7 @@ int16_t Z2S_findChannelNumberNextSlot(int16_t prev_slot, esp_zb_ieee_addr_t ieee
 }
 
 void Z2S_fillDevicesTableSlot(zbg_device_params_t *device, uint8_t slot, uint8_t channel, int32_t channel_type, int8_t sub_id,
-                              char *name, uint32_t func) {
+                              char *name, uint32_t func, uint8_t secondary_channel) {
 
   z2s_devices_table[slot].valid_record = true;
   memcpy(z2s_devices_table[slot].ieee_addr,device->ieee_addr,8);
@@ -109,6 +122,7 @@ void Z2S_fillDevicesTableSlot(zbg_device_params_t *device, uint8_t slot, uint8_t
   z2s_devices_table[slot].endpoint = device->endpoint;
   z2s_devices_table[slot].cluster_id = device->cluster_id;
   z2s_devices_table[slot].Supla_channel = channel;
+  z2s_devices_table[slot].Supla_secondary_channel = secondary_channel;
   z2s_devices_table[slot].Supla_channel_type = channel_type;
   z2s_devices_table[slot].sub_id = sub_id; 
   if (name) strcpy(z2s_devices_table[slot].Supla_channel_name, name);
@@ -120,8 +134,10 @@ void Z2S_fillDevicesTableSlot(zbg_device_params_t *device, uint8_t slot, uint8_t
 
 bool Z2S_loadDevicesTable() {
 
-  log_i("before get devices table");
-  uint32_t z2s_devices_table_size =  Z2S_getDevicesTableSize(); //3584
+  
+  uint32_t z2s_devices_table_size =  Z2S_getDevicesTableSize(); 
+  log_i("Z2S_getDevicesTableSize %d, sizeof(z2s_devices_table) %d, sizeof(z2s_device_params_t) %d, sizeof(bool)%d",
+  z2s_devices_table_size, sizeof(z2s_devices_table), sizeof(z2s_device_params_t), sizeof(bool));
 
   if (z2s_devices_table_size == 0) {
 
@@ -146,9 +162,49 @@ bool Z2S_loadDevicesTable() {
   } else
   {
     if (z2s_devices_table_size != sizeof(z2s_devices_table)) {
-      
-      log_i("Devices table size mismatch %d <> %d", z2s_devices_table_size, sizeof(z2s_devices_table));
-      return false;
+
+      if (z2s_devices_table_size == 0x2200) { //legacy 0.4.2
+        log_i("Previous version of devices table detected with size 0x%x, trying to upgrade", z2s_devices_table_size);
+        z2s_legacy_device_params_t *z2s_devices_legacy_table = (z2s_legacy_device_params_t *)malloc(z2s_devices_table_size);
+        if (z2s_devices_legacy_table == nullptr) {
+          log_e("Error while allocating memory for legace table copying");
+          return false;
+        }
+        else {
+          if (!Supla::Storage::ConfigInstance()->getBlob(Z2S_DEVICES_TABLE, (char *)z2s_devices_legacy_table, z2s_devices_table_size)) {
+            log_i ("Legacy devices table load failed!");
+            return false;
+          }
+          for (uint8_t table_index = 0; table_index < Z2S_CHANNELMAXCOUNT; table_index++) {
+
+              z2s_devices_table[table_index].valid_record = (z2s_devices_legacy_table + table_index)->valid_record;
+              z2s_devices_table[table_index].model_id = (z2s_devices_legacy_table + table_index)->model_id;
+              memcpy(z2s_devices_table[table_index].ieee_addr, (z2s_devices_legacy_table + table_index)->ieee_addr,
+                     sizeof(esp_zb_ieee_addr_t));
+              z2s_devices_table[table_index].endpoint = (z2s_devices_legacy_table + table_index)->endpoint;
+              z2s_devices_table[table_index].cluster_id = (z2s_devices_legacy_table + table_index)->cluster_id;
+              z2s_devices_table[table_index].short_addr = (z2s_devices_legacy_table + table_index)->short_addr;
+              z2s_devices_table[table_index].Supla_channel = (z2s_devices_legacy_table + table_index)->Supla_channel;
+              z2s_devices_table[table_index].Supla_secondary_channel = 0xFF;
+              z2s_devices_table[table_index].Supla_channel_type = (z2s_devices_legacy_table + table_index)->Supla_channel_type;
+              memcpy(z2s_devices_table[table_index].Supla_channel_name, (z2s_devices_legacy_table + table_index)->Supla_channel_name, 
+                     sizeof(z2s_devices_table[table_index].Supla_channel_name));
+              z2s_devices_table[table_index].Supla_channel_func = (z2s_devices_legacy_table + table_index)->Supla_channel_func;
+              z2s_devices_table[table_index].sub_id = (z2s_devices_legacy_table + table_index)->sub_id;
+              z2s_devices_table[table_index].user_data_1 = 0;
+              z2s_devices_table[table_index].user_data_2 = 0;
+            }
+          log_i("Devices table upgrade completed - saving new table");
+          Z2S_saveDevicesTable();
+          Z2S_printDevicesTableSlots();
+          free(z2s_devices_legacy_table);
+          return true;
+        }
+      }
+      else {
+        log_i("Devices table size mismatch %d <> %d, no upgrade is possible", z2s_devices_table_size, sizeof(z2s_devices_table));
+        return false;
+      }
     }
     else {
         if (!Supla::Storage::ConfigInstance()->getBlob(Z2S_DEVICES_TABLE, (char *)z2s_devices_table, sizeof(z2s_devices_table))) {
@@ -156,6 +212,7 @@ bool Z2S_loadDevicesTable() {
           return false;
         } else {
           log_i ("Devices table load success!");
+          Z2S_printDevicesTableSlots();
           return true;
         }
     }
@@ -201,8 +258,11 @@ void Z2S_initSuplaChannels() {
 
         switch (z2s_devices_table[devices_counter].Supla_channel_type) {
 
-          case SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR: 
+          case SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR:
             initZ2SDeviceTempHumidity(devices_counter); break;
+
+          case SUPLA_CHANNELTYPE_PRESSURESENSOR:
+            initZ2SDevicePressure(devices_counter); break;
 
           case SUPLA_CHANNELTYPE_GENERAL_PURPOSE_MEASUREMENT:
             initZ2SDeviceGeneralPurposeMeasurement(devices_counter); break; 
@@ -259,6 +319,19 @@ void Z2S_onHumidityReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
     log_i("No channel found for address %s", ieee_addr);
   else
     msgZ2SDeviceTempHumidityHumi(channel_number_slot, humidity, rssi);
+}
+
+void Z2S_onPressureReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, float pressure, signed char rssi) {
+
+  log_i("onPressureReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
+        ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
+  
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_PRESSURESENSOR, NO_CUSTOM_CMD_SID);
+  
+  if (channel_number_slot < 0)
+    log_i("No channel found for address %s", ieee_addr);
+  else
+    msgZ2SDevicePressure(channel_number_slot, pressure, rssi);
 }
 
 void Z2S_onIlluminanceReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t illuminance, signed char rssi) {
@@ -354,7 +427,7 @@ void Z2S_onRMSCurrentReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, ui
 
 void Z2S_onRMSActivePowerReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t active_power, signed char rssi) {
 
-  log_i("onRMSVoltageReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
+  log_i("onRMSActivePowerReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
         ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
 
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ELECTRICITY_METER, NO_CUSTOM_CMD_SID);
@@ -384,7 +457,7 @@ void Z2S_onCurrentLevelReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, 
   log_i("onCurrentLevelReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
         ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
 
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_DIMMER, NO_CUSTOM_CMD_SID);
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_DIMMER, TUYA_BRIGHTNESS_CONTROL);
   
   if (channel_number_slot >= 0) {
     msgZ2SDeviceDimmer(channel_number_slot, level, true, rssi);
@@ -421,6 +494,21 @@ void Z2S_onColorSaturationReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
   }
   log_i("No channel found for address %s", ieee_addr);
 }
+
+void Z2S_onColorTemperatureReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t color_temperature, signed char rssi) {
+
+  log_i("onColorTemperatureReceive 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x:0x%x, endpoint 0x%x", ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
+        ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0], endpoint);
+  
+  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_DIMMER, TUYA_COLOR_TEMPERATURE_CONTROL);
+  
+  if (channel_number_slot >= 0) {
+    msgZ2SDeviceDimmer(z2s_devices_table[channel_number_slot].Supla_channel, color_temperature, true, rssi);
+    return;
+  }
+  log_i("No channel found for address %s", ieee_addr);
+}
+
 
 void Z2S_onBatteryPercentageReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t battery_remaining) {
 
@@ -469,7 +557,19 @@ bool processIkeaSymfoniskCommands(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
   log_i("IKEA SYMFONISK command: cluster(0x%x), command id(0x%x), ", cluster_id, command_id);
   
   uint8_t sub_id = 0x7F;
-      
+
+  bool is_IKEA_FC80_EP_2 = false;
+  bool is_IKEA_FC80_EP_3 = false;
+  bool is_IKEA_FC7F_C_1 = false;
+
+  if ((cluster_id == 0xFC80) && (endpoint == 2))
+    is_IKEA_FC80_EP_2 = true;
+  if ((cluster_id == 0xFC80) && (endpoint == 3))
+    is_IKEA_FC80_EP_3 = true;
+  if ((cluster_id == 0xFC7F) && (command_id == 1))
+    is_IKEA_FC7F_C_1 = true;
+
+
   if ((cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF) && (command_id == 0x02))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_PLAY_SID;
   else if ((cluster_id == ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL) && (command_id == 0x05) && compareBuffer(buffer, buffer_size, "00FF"))
@@ -486,27 +586,54 @@ bool processIkeaSymfoniskCommands(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoin
   else if ((cluster_id == ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL) && (command_id == 0x01) && 
            (compareBuffer(buffer, buffer_size, "01FF0000") || compareBuffer(buffer, buffer_size, "01C30000")))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_VOLUME_DOWN_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 2) && (command_id == 0x01))
+  else if (is_IKEA_FC80_EP_2 && (command_id == 0x01))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_PRESSED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 2) && (command_id == 0x02))
+  else if (is_IKEA_FC80_EP_2 && (command_id == 0x02))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_HELD_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 2) && (command_id == 0x03))
+  else if (is_IKEA_FC80_EP_2 && (command_id == 0x03))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_SHORT_RELEASED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 2) && (command_id == 0x04))
+  else if (is_IKEA_FC80_EP_2 && (command_id == 0x04))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_LONG_RELEASED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 2) && (command_id == 0x06))
+  else if (is_IKEA_FC80_EP_2 && (command_id == 0x06))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_DOUBLE_PRESSED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 3) && (command_id == 0x01))
+  else if (is_IKEA_FC80_EP_3 && (command_id == 0x01))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_PRESSED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 3) && (command_id == 0x02))
+  else if (is_IKEA_FC80_EP_3 && (command_id == 0x02))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_HELD_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 3) && (command_id == 0x03))
+  else if (is_IKEA_FC80_EP_3 && (command_id == 0x03))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_SHORT_RELEASED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 3) && (command_id == 0x04))
+  else if (is_IKEA_FC80_EP_3 && (command_id == 0x04))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_LONG_RELEASED_SID;
-  else if ((cluster_id == 0xFC80) && (endpoint == 3) && (command_id == 0x06))
+  else if (is_IKEA_FC80_EP_3 && (command_id == 0x06))
     sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_DOUBLE_PRESSED_SID;
   
+  //Symfonsik gen 2 legacy
+
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0101")) {
+    endpoint = 2;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_PRESSED_SID;
+  } else
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0102")) {
+    endpoint = 2;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_SHORT_RELEASED_SID;
+  } else
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0201")) {
+    endpoint = 3;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_PRESSED_SID;
+  } else
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0202")) {
+    endpoint = 3;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_SHORT_RELEASED_SID;
+  } else
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0103")) {
+    endpoint = 2;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOT_DOUBLE_PRESSED_SID;
+  }
+  if (is_IKEA_FC7F_C_1 && compareBuffer(buffer, buffer_size, "0203")) {
+    endpoint = 3;
+    sub_id = IKEA_CUSTOM_CMD_SYMFONISK_DOTS_DOUBLE_PRESSED_SID;
+  }
+
   if (sub_id == 0x7F) return false;
 
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster_id, SUPLA_CHANNELTYPE_ACTIONTRIGGER, sub_id);
@@ -618,6 +745,7 @@ void Z2S_onCmdCustomClusterReceive( esp_zb_ieee_addr_t ieee_addr, uint16_t endpo
 
   switch (cluster) {
     case 0xEF00: processTuyaCustomCluster(ieee_addr, endpoint, command_id, payload_size, payload, rssi); break;
+    case 0xFC7F:
     case 0xFC80: {
       log_i("IKEA custom cluster(0x%x) on endpoint(0x%x), command(0x%x)", cluster, endpoint, command_id);
       processIkeaSymfoniskCommands(ieee_addr, endpoint, cluster, command_id, payload_size, payload, rssi);
@@ -666,8 +794,20 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id) {
       case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR:
       case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR_1:
       case Z2S_DEVICE_DESC_TUYA_SOIL_TEMPHUMIDITY_SENSOR:
+      case Z2S_DEVICE_DESC_TUYA_SOIL_TEMPHUMIDITY_SENSOR_1:
       case Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_SENSOR: 
         addZ2SDeviceTempHumidity(device, first_free_slot); break;
+
+      case Z2S_DEVICE_DESC_TEMPHUMIPRESSURE_SENSOR: {
+        addZ2SDeviceTempHumidity(device, first_free_slot);
+        
+        first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
+        if (first_free_slot == 0xFF) {
+          log_i("ERROR! Devices table full!");
+          return ADD_Z2S_DEVICE_STATUS_DT_FWA;
+        }
+        addZ2SDevicePressure(device, first_free_slot);
+      } break;
 
       case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR: 
       case Z2S_DEVICE_DESC_LUMI_MAGNET_SENSOR: 
@@ -679,9 +819,12 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id) {
       case Z2S_DEVICE_DESC_RELAY_1: addZ2SDeviceVirtualRelay( &zbGateway,device, first_free_slot, "POWER SWITCH", 
                                                               SUPLA_CHANNELFNC_POWERSWITCH); break;
 
-      case Z2S_DEVICE_DESC_TUYA_2GANG_SWITCH_1:
-      case Z2S_DEVICE_DESC_TUYA_2GANG_SWITCH_2: addZ2SDeviceVirtualRelay( &zbGateway,device, first_free_slot, "2GANG SWITCH", 
-                                                                          SUPLA_CHANNELFNC_LIGHTSWITCH); break;
+      case Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1:
+      case Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_2: {
+        char gang_name[30];
+        sprintf(gang_name, "GANG #%d", device->endpoint);
+        addZ2SDeviceVirtualRelay( &zbGateway,device, first_free_slot, gang_name, SUPLA_CHANNELFNC_LIGHTSWITCH); 
+      } break;
 
       case Z2S_DEVICE_DESC_ON_OFF:
       case Z2S_DEVICE_DESC_ON_OFF_1: {
@@ -766,10 +909,18 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id) {
         addZ2SDeviceRGB(&zbGateway,device, first_free_slot, "RGB BULB", SUPLA_CHANNELFNC_RGBLIGHTING);
       } break;
 
-      case Z2S_DEVICE_DESC_TUYA_RGBW_BULB: {
+      case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_A:
+      case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_B: {
+        
+        addZ2SDeviceDimmer(&zbGateway,device, first_free_slot, TUYA_BRIGHTNESS_CONTROL, "BRIGHTNESS", SUPLA_CHANNELFNC_DIMMER);
 
-        addZ2SDeviceDimmer(&zbGateway,device, first_free_slot, "DIMMER", SUPLA_CHANNELFNC_DIMMER);
-
+        first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
+        if (first_free_slot == 0xFF) {
+          log_i("ERROR! Devices table full!");
+          return ADD_Z2S_DEVICE_STATUS_DT_FWA;
+        }
+        addZ2SDeviceDimmer(&zbGateway,device, first_free_slot, TUYA_COLOR_TEMPERATURE_CONTROL, "COLOR TEMPERATURE", SUPLA_CHANNELFNC_DIMMER);
+        
         first_free_slot = Z2S_findFirstFreeDevicesTableSlot();
         if (first_free_slot == 0xFF) {
           log_i("ERROR! Devices table full!");
@@ -845,5 +996,28 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id) {
   } else {
     log_i("Device (0x%x), endpoint (0x%x) already in z2s_devices_table (index 0x%x)", device->short_addr, device->endpoint, channel_number_slot);
     return ADD_Z2S_DEVICE_STATUS_DAP; 
+  }
+}
+
+void updateTimeout(uint8_t device_id, uint8_t timeout) {
+  
+  z2s_devices_table[device_id].user_data_1 |= USER_DATA_FLAG_SED_TIMEOUT;
+  z2s_devices_table[device_id].user_data_2 = timeout;
+  
+  if (Z2S_saveDevicesTable()) {
+    log_i("Device(channel %d) timeout updated. Table saved successfully.", z2s_devices_table[device_id].Supla_channel);
+      
+    auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[device_id].Supla_channel);
+      
+    if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_BINARYSENSOR) {
+
+      auto Supla_Z2S_VirtualBinary = reinterpret_cast<Supla::Sensor::Z2S_VirtualBinary *>(element);
+      Supla_Z2S_VirtualBinary->setTimeout(timeout);
+    } else
+    if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR) {
+
+      auto Supla_Z2S_VirtualThermHygroMeter = reinterpret_cast<Supla::Sensor::Z2S_VirtualThermHygroMeter *>(element);
+      Supla_Z2S_VirtualThermHygroMeter->setTimeout(timeout);
+    }
   }
 }

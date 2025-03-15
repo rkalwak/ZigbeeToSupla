@@ -44,7 +44,7 @@ Supla::Html::ProtocolParameters htmlProto;
 #define WIFI_ENABLE 3
 #define WIFI_ANT_CONFIG 14
 
-#define REFRESH_PERIOD 60 * 1000 // miliseconds
+#define REFRESH_PERIOD              10 * 1000 //miliseconds
 
 #define USE_WEB_CONFIG_ON_STARTUP
 
@@ -59,13 +59,17 @@ uint32_t printTime = 0;
 uint32_t zbInit_delay = 0;
 
 uint32_t refresh_time = 0;
+uint8_t refresh_cycle = 0;
 
 bool zbInit = true;
 uint8_t write_mask;
 uint16_t write_mask_16;
 
 const static char PARAM_CMD1[] = "zigbeestack";
-const static char PARAM_CMD2[] = "Z2S devices";
+const static char PARAM_CMD2[] = "RMZ2Sdevices";
+const static char PARAM_CMD3[] = "UPZ2Sdevices";
+const static char PARAM_TXT1[] = "SEDtimeout";
+
 
 void Z2S_nwk_scan_neighbourhood() {
 
@@ -109,24 +113,29 @@ void Z2S_nwk_scan_neighbourhood() {
     log_i("Z2S_nwk_scan_neighbourhood scan completed");
 }
 
-
 void supla_callback_bridge(int event, int action) {
   log_i("supla_callback_bridge - event(0x%x), action(0x%x)", event, action);
   switch (event) {
     case Supla::ON_EVENT_1:
-    case Supla::ON_CLICK_1: Zigbee.openNetwork(ZG_OPEN_NETWORK); break;
+    case Supla::ON_CLICK_1: Zigbee.openNetwork(180); break;
     case Supla::ON_EVENT_2:
     case Supla::ON_CLICK_5: Zigbee.factoryReset(); break;
     case Supla::ON_EVENT_3: 
     case Supla::ON_CLICK_10: Z2S_clearDevicesTable(); break;
     case Supla::ON_EVENT_4: Z2S_nwk_scan_neighbourhood(); break;
   }
-  if (event >= Supla::ON_EVENT_5) {
+  if ((event >= Supla::ON_EVENT_5) && (event < Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT)) {
     z2s_devices_table[event - Supla::ON_EVENT_5].valid_record = false;
     if (Z2S_saveDevicesTable()) {
       log_i("Device on channel %d removed. Restarting...", z2s_devices_table[event - Supla::ON_EVENT_5].Supla_channel);
       SuplaDevice.scheduleSoftRestart(1000);
     }
+  }
+  if ((event >= Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT) && (event < Supla::ON_EVENT_5 + 2*Z2S_CHANNELMAXCOUNT)) {
+    int32_t timeout = 0;
+    Supla::Storage::ConfigInstance()->getInt32(PARAM_TXT1, &timeout);
+    log_i("Timeout is %d", timeout);   
+    updateTimeout(event - (Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT), timeout);
   }
 }
 
@@ -194,23 +203,38 @@ void setup()
 
   Z2S_initSuplaChannels();
 
-  auto selectCmd2 = new Supla::Html::SelectCmdInputParameter(PARAM_CMD2, "Z2S Devices");
-  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++)
-    if (z2s_devices_table[devices_counter].valid_record)
-    {
+  new Supla::Html::CustomParameter(PARAM_TXT1,"SED Timeout (h)", 0);
+ 
+  auto selectCmd2 = new Supla::Html::SelectCmdInputParameter(PARAM_CMD2, "Remove Z2S Device");
+  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) 
+    if (z2s_devices_table[devices_counter].valid_record) {
       char device_removal_cmd[128];
       sprintf(device_removal_cmd, "Remove Z2SDevice [%x:%x:%x:%x:%x:%x:%x:%x] channel # %d",
-              z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5],
-              z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2],
-              z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0], z2s_devices_table[devices_counter].Supla_channel);
+      z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5],
+      z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2],
+      z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0], z2s_devices_table[devices_counter].Supla_channel);
       log_i("cmd %s, len %d", device_removal_cmd, strlen(device_removal_cmd));
-      selectCmd2->registerCmd(device_removal_cmd, Supla::ON_EVENT_4 + devices_counter);
-      selectCmd2->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_4 + devices_counter, true);
+      selectCmd2->registerCmd(device_removal_cmd, Supla::ON_EVENT_5 + devices_counter);
+      selectCmd2->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_5 + devices_counter, true);
+    }
+
+  auto selectCmd3 = new Supla::Html::SelectCmdInputParameter(PARAM_CMD3, "Update Z2S Device timeout (h)");
+  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) 
+    if (z2s_devices_table[devices_counter].valid_record) {
+      char device_removal_cmd[128];
+      sprintf(device_removal_cmd, "Update Z2SDevice [%x:%x:%x:%x:%x:%x:%x:%x] channel # %d",
+      z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5],
+      z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2],
+      z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0], z2s_devices_table[devices_counter].Supla_channel);
+      log_i("cmd %s, len %d", device_removal_cmd, strlen(device_removal_cmd));
+      selectCmd3->registerCmd(device_removal_cmd, Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT + devices_counter);
+      selectCmd3->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT + devices_counter, true);
     }
   //  Zigbee Gateway notifications
 
   zbGateway.onTemperatureReceive(Z2S_onTemperatureReceive);
   zbGateway.onHumidityReceive(Z2S_onHumidityReceive);
+  zbGateway.onPressureReceive(Z2S_onPressureReceive);
   zbGateway.onIlluminanceReceive(Z2S_onIlluminanceReceive);
   zbGateway.onOccupancyReceive(Z2S_onOccupancyReceive);
   zbGateway.onOnOffReceive(Z2S_onOnOffReceive);
@@ -227,6 +251,7 @@ void setup()
   zbGateway.onCmdCustomClusterReceive(Z2S_onCmdCustomClusterReceive);
 
   zbGateway.onIASzoneStatusChangeNotification(Z2S_onIASzoneStatusChangeNotification);
+
   zbGateway.onBoundDevice(Z2S_onBoundDevice);
   zbGateway.onBTCBoundDevice(Z2S_onBTCBoundDevice);
 
@@ -249,7 +274,7 @@ void setup()
   log_i("before SuplaDevice begin");
   SuplaDevice.begin();
 
-  // httpUpdater.setup(suplaServer.getServerPtr(), "/update", "admin", "pass");
+  httpUpdater.setup(suplaServer.getServerPtr(), "/update", "admin", "pass");
 
   startTime = millis();
   printTime = millis();
@@ -257,11 +282,16 @@ void setup()
   refresh_time = millis();
 }
 
-zb_device_params_t *gateway_device;
+zbg_device_params_t *gateway_device;
 zbg_device_params_t *joined_device;
 
 uint8_t counter = 0;
 uint8_t tuya_dp_data[10];
+
+zbg_device_params_t test_device = {.model_id = Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_A,
+.rejoined = true, .ZC_binding = true, .ieee_addr = {0,0,0,0,0,0,0,0}, .endpoint = 1, .cluster_id = 0, 
+  .short_addr = 0, .user_data = 0};
+
 void loop()
 {
   SuplaDevice.iterate();
@@ -279,20 +309,26 @@ void loop()
     refresh_time = 0;
 
     SuplaDevice.handleAction(0, Supla::START_LOCAL_WEB_SERVER); //don't start local web server until Zigbee is ready
+   // auto element = Supla::Element::getElementByChannelNumber(0);
+   // if (element == nullptr)
+   //   auto dimmer_object = new Supla::Control::Z2S_TuyaDimmerBulb(zbGateway, test_device); 
   }
   
   //checking status of AC powered devices
   if (millis() - refresh_time > REFRESH_PERIOD) {
-    for ([[maybe_unused]]
-      const auto &device : zbGateway.getGatewayDevices()) {       
-      log_i("Device on endpoint(0x%x), short address(0x%x), model id(0x%x), rejoined(%s)", device->endpoint, device->short_addr, device->model_id,
-            device->rejoined ? "YES" : "NO");
 
-      if ((device->model_id >= Z2S_DEVICE_DESC_LIGHT_SOURCE) && (device->model_id < Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F)) {//TODO change it to some kind of function
+    for ([[maybe_unused]]const auto &device : zbGateway.getGatewayDevices()) {       
+
+      if (refresh_cycle % 12 == 0) //print every 120 seconds - only for debug purposes
+        log_i("Device on endpoint(0x%x), short address(0x%x), model id(0x%x), cluster id(0x%x), rejoined(%s)", 
+              device->endpoint, device->short_addr, device->model_id, device->cluster_id, device->rejoined ? "YES" : "NO");
+
+      if ((refresh_cycle % 6 == 0) && (device->model_id >= Z2S_DEVICE_DESC_LIGHT_SOURCE) && (device->model_id < Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F) &&
+          (device->endpoint == 1) && (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF)) {//TODO change it to some kind of function
         
         bool is_online = zbGateway.sendAttributeRead(device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, true); 
         
-        int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, device->endpoint, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
+        int16_t channel_number_slot = Z2S_findChannelNumberSlot(device->ieee_addr, -1/*device->endpoint*/, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
         
         if (channel_number_slot < 0)
           log_i("No channel found for address %s", device->ieee_addr);
@@ -306,11 +342,22 @@ void loop()
             }
             else element->getChannel()->setStateOffline();
           }
-          channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, device->ieee_addr, device->endpoint, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
+          channel_number_slot = Z2S_findChannelNumberNextSlot(channel_number_slot, device->ieee_addr, -1 /*device->endpoint*/, device->cluster_id, ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID);
         }  
       }
+      if ((refresh_cycle % 1 == 0) && (device->model_id == Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER_2) &&
+          (device->endpoint == 1) && (device->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT)) {
+        
+        uint16_t attributes[3] = {ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID,
+                                  ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID};
+
+          zbGateway.sendAttributesRead(device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 3, &attributes[0]);  
+      }
     }
-    refresh_time = millis();
+    if (!zbGateway.getGatewayDevices().empty()) {
+      refresh_time = millis();
+      refresh_cycle = (refresh_cycle + 1) % 12;
+    }
   }
 
   if (zbGateway.isNewDeviceJoined()) {
@@ -325,11 +372,14 @@ void loop()
       //do some Tuya vodoo - just in case Tuya device is paired
       
       zbGateway.sendCustomClusterCmd(joined_device, TUYA_PRIVATE_CLUSTER_EF00, 0x03, ESP_ZB_ZCL_ATTR_TYPE_SET, 0, NULL);
-      if (!zbGateway.zbQueryDeviceBasicCluster(joined_device))
-      {
-        log_i("Error while pairing - cann't read manufacturer id. Gateway will restart, try to pair device once again!");
-        SuplaDevice.scheduleSoftRestart(0);
-      }
+      
+      if ((strlen(zbGateway.getQueryBasicClusterData()->zcl_model_name) == 0) ||
+          (strlen(zbGateway.getQueryBasicClusterData()->zcl_manufacturer_name) == 0))
+        if (!zbGateway.zbQueryDeviceBasicCluster(joined_device)) {
+        
+          log_i("Error while pairing - cann't read manufacturer id. Gateway will restart, try to pair device once again!");
+          SuplaDevice.scheduleSoftRestart(0);
+        }
       write_mask = 0x13;
       zbGateway.sendAttributeWrite(joined_device, 0x0000, 0xffde, ESP_ZB_ZCL_ATTR_TYPE_U8, 1, &write_mask); //Tuya black magic continues
       write_mask = 0x1;
@@ -486,34 +536,43 @@ void loop()
               }
               //here we can configure reporting and restart ESP32
               //zbGateway.sendDeviceFactoryReset(joined_device);
-              switch (joined_device->model_id) {
+              switch (Z2S_DEVICES_LIST[i].z2s_device_desc_id) { //(joined_device->model_id) {
+
                 case 0x0000: break;      
+                
                 case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR:
                 case Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR_1: {
                 } break;
-                /*case Z2S_DEVICE_DESC_RGBW_LIGHT_SOURCE: {
+
+                case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_A:
+                case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_B: {
                   if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL, ESP_ZB_ZCL_ATTR_COLOR_CONTROL_COLOR_CAPABILITIES_ID, true))
                     log_i("Color control caps 0x%x, type 0x%x", *(uint16_t *)zbGateway.getReadAttrLastResult()->data.value, zbGateway.getReadAttrLastResult()->data.type);
+                  if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL, 0xE100, true)) {
+                    esp_zb_uint48_t *value = (esp_zb_uint48_t *)zbGateway.getReadAttrLastResult()->data.value;
+                    log_i("Color full data 0x%x::0x%x, type 0x%x", value->low, value->high, zbGateway.getReadAttrLastResult()->data.type);
+                  }
                     
-                } break;*/
+                } break;
+
                 case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER_1:
-                case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER_1: {
+                case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER_1: 
+                case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER: {
                   zbGateway.setClusterReporting(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
-                                                ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 0, 300, 5, true);
+                                                ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 5, 3600, 5, true);
                   zbGateway.setClusterReporting(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
-                                                ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 0, 300, 10, true);
+                                                ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 5, 3600, 50, true);
                   zbGateway.setClusterReporting(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
                                                 ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID, ESP_ZB_ZCL_ATTR_TYPE_U16, 0, 300, 5, true);
                   zbGateway.setClusterReporting(joined_device, ESP_ZB_ZCL_CLUSTER_ID_METERING,  
-                                                ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID, ESP_ZB_ZCL_ATTR_TYPE_U48, 0, 300, 1, true);
+                                                ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID, ESP_ZB_ZCL_ATTR_TYPE_U48, 5, 3600, 2, true);
                   
                   
                 } [[fallthrough]];//break;
                 case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER:
                 case Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER_2:
-                case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER:
                 case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER_2: {
-                  zbGateway.readClusterReportCfgCmd(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, false);
+                  /*zbGateway.readClusterReportCfgCmd(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, false);
                   zbGateway.readClusterReportCfgCmd(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID, false);
                   zbGateway.readClusterReportCfgCmd(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID, false);
                   zbGateway.readClusterReportCfgCmd(joined_device, ESP_ZB_ZCL_CLUSTER_ID_METERING, ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID, false);
@@ -546,14 +605,14 @@ void loop()
                   if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_METERING, 
                       ESP_ZB_ZCL_ATTR_METERING_DIVISOR_ID, true))
                     log_i("Metering divisor 0x%x:0x%x", 
-                          ((esp_zb_uint24_t *)zbGateway.getReadAttrLastResult()->data.value)->low, ((esp_zb_uint24_t *)zbGateway.getReadAttrLastResult()->data.value)->high);
+                          ((esp_zb_uint24_t *)zbGateway.getReadAttrLastResult()->data.value)->low, ((esp_zb_uint24_t *)zbGateway.getReadAttrLastResult()->data.value)->high);*/
                   //relay restore mode on startup
                   write_mask = 0xFF;
                   zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x4003, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
                   write_mask = 0x02;
                   zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x8002, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask); //Tuya special
-                    
                 }; break;
+                
                 case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR: {
                   if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE,ESP_ZB_ZCL_ATTR_IAS_ZONE_ZONETYPE_ID, true))
                       log_i("IAS_ZONE attribute has been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, 
@@ -562,35 +621,45 @@ void loop()
                   zbGateway.setClusterReporting(joined_device, ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE, 
                                                 ESP_ZB_ZCL_ATTR_IAS_ZONE_ZONESTATUS_ID, ESP_ZB_ZCL_ATTR_TYPE_16BITMAP, 0, 900, 1, false);
                 } break;
+
                  case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F:
                  case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_3F:
                  case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_2F: {
+
                     joined_device->endpoint = 0x01;
                     if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,0x8004, true))
                       log_i("Tuya custom attribute 0x8004 has been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
-                    write_mask = 0x01;
+                    write_mask = 0x01; //Tuya switch mode, 0x00 - scenes
                     zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x8004, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
                     if (zbGateway.sendAttributeRead(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,0x8004, true))
                       log_i("Tuya custom attribute has 0x8004 been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
                  } break;
-                 case Z2S_DEVICE_DESC_TUYA_2GANG_SWITCH_1:
-                 {
-                    /*joined_device->endpoint = 0x01;
-                    if (zbGateway.sendAttributeRead(joined_device, 0xE001,0xD020, true))
-                      log_i("Tuya custom attribute 0xD020 has been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
-                    write_mask = 0x01;
-                    zbGateway.sendAttributeWrite(joined_device, 0xE001, 0xD020, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
-                    if (zbGateway.sendAttributeRead(joined_device, 0xE001,0xD020, true))
-                      log_i("Tuya custom attribute has 0xD020 been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
-                    joined_device->endpoint = 0x02;
-                    if (zbGateway.sendAttributeRead(joined_device, 0xE001,0xD020, true))
-                      log_i("Tuya custom attribute 0xD020 has been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
-                    write_mask = 0x01;
-                    zbGateway.sendAttributeWrite(joined_device, 0xE001, 0xD020, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
-                    if (zbGateway.sendAttributeRead(joined_device, 0xE001,0xD020, true))
-                      log_i("Tuya custom attribute has 0xD020 been read id 0x%x, value 0x%x", zbGateway.getReadAttrLastResult()->id, *(uint8_t *)zbGateway.getReadAttrLastResult()->data.value);
-                    */
+
+                 case Z2S_DEVICE_DESC_TUYA_2GANG_SWITCH:
+                 case Z2S_DEVICE_DESC_TUYA_3GANG_SWITCH:
+                 case Z2S_DEVICE_DESC_TUYA_4GANG_SWITCH: {
+                   joined_device->endpoint = 0x01;
+                    write_mask = 0xFF;
+                    zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x4003, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
+                    write_mask = 0x02;
+                    zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x8002, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask); //Tuya special
+                    for(int n = 0; n < Z2S_DEVICES_LIST[i].z2s_device_endpoints_count; n++) {
+                      joined_device->endpoint = ( Z2S_DEVICES_LIST[i].z2s_device_endpoints_count == 1) ? 
+                                                  1 : Z2S_DEVICES_LIST[i].z2s_device_endpoints[n].endpoint_id;;
+                      zbGateway.sendAttributeWrite(joined_device, 0xE001, 0xD010, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask); 
+                      zbGateway.sendAttributeWrite(joined_device, 0xE001, 0xD030, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
+                    }
                  } break;
+
+                 case Z2S_DEVICE_DESC_RELAY_1: {
+                    
+                    joined_device->endpoint = 0x01;
+                    write_mask = 0xFF;
+                    zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x4003, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask);
+                    write_mask = 0x02;
+                    zbGateway.sendAttributeWrite(joined_device, ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 0x8002, ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM, 1, &write_mask); //Tuya special
+                 } break;
+                 
                  case Z2S_DEVICE_DESC_TUYA_SMOKE_DETECTOR:
                  case Z2S_DEVICE_DESC_TUYA_SOIL_TEMPHUMIDITY_SENSOR: 
                  case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR:

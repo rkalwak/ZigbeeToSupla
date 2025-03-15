@@ -134,17 +134,17 @@ bool ZigbeeCore::zigbeeInit(esp_zb_cfg_t *zb_cfg, bool erase_nvs) {
     return false;
   }
 
-  err = esp_zb_overall_network_size_set(64);
+  err = esp_zb_overall_network_size_set(128);
   if (err != ESP_OK) {
     log_e("Failed to set overall network size");
     return false;
   }
-  err = esp_zb_io_buffer_size_set(240);
+  err = esp_zb_io_buffer_size_set(254);
   if (err != ESP_OK) {
     log_e("Failed to set IO buffer size");
     return false;
   }
-  err = esp_zb_scheduler_queue_size_set(240);
+  err = esp_zb_scheduler_queue_size_set(254);
   if (err != ESP_OK) {
     log_e("Failed to set scheduler queue size");
     return false;
@@ -267,6 +267,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
   esp_zb_app_signal_type_t sig_type = (esp_zb_app_signal_type_t)*p_sg_p;
   //coordinator variables
   esp_zb_zdo_signal_device_annce_params_t *dev_annce_params = NULL;
+  esp_zb_zdo_signal_leave_indication_params_t *dev_leave_params = NULL;
 
   //main switch
   switch (sig_type) {
@@ -370,13 +371,14 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
         for (std::list<ZigbeeEP *>::iterator it = Zigbee.ep_objects.begin(); it != Zigbee.ep_objects.end(); ++it) {
           if (!(*it)->bound() || (*it)->epAllowMultipleBinding()) {
 	
-		if ((*it)->isDeviceBound(dev_annce_params->device_short_addr, dev_annce_params->ieee_addr))
-			log_d("Device already bound to endpoint %d", (*it)->getEndpoint());
-		else (*it)->zbDeviceAnnce(dev_annce_params->device_short_addr, dev_annce_params->ieee_addr);//findEndpoint(&cmd_req);
+		        if ((*it)->isDeviceBound(dev_annce_params->device_short_addr, dev_annce_params->ieee_addr))
+			        log_d("Device already bound to endpoint %d", (*it)->getEndpoint());
+		        else 
+              (*it)->zbDeviceAnnce(dev_annce_params->device_short_addr, dev_annce_params->ieee_addr);//findEndpoint(&cmd_req);
           }
         }
-      }
-      break;
+      } break;
+
     case ESP_ZB_NWK_SIGNAL_PERMIT_JOIN_STATUS:  // Coordinator
       if ((zigbee_role_t)Zigbee.getRole() == ZIGBEE_COORDINATOR) {
         if (err_status == ESP_OK) {
@@ -394,6 +396,16 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
         Zigbee.factoryReset();
       }
       break;
+    case ESP_ZB_ZDO_SIGNAL_LEAVE_INDICATION: {
+
+      dev_leave_params = (esp_zb_zdo_signal_leave_indication_params_t *)esp_zb_app_signal_get_params(p_sg_p);
+
+      log_i("Joined device is leaving network (short: 0x%04hx), rejoin (%s)", dev_leave_params->short_addr, dev_leave_params->rejoin == 1 ? "YES" : "NO");
+      
+      for (std::list<ZigbeeEP *>::iterator it = Zigbee.ep_objects.begin(); it != Zigbee.ep_objects.end(); ++it) 
+        (*it)->zbDeviceLeave(dev_leave_params->short_addr, dev_leave_params->device_addr, dev_leave_params->rejoin);
+    } break;
+
      case ESP_ZB_NLME_STATUS_INDICATION: {
         printf("%s, status: 0x%x\n", esp_zb_zdo_signal_to_string(sig_type), *(uint8_t *)esp_zb_app_signal_get_params(p_sg_p));
     } break;

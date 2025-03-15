@@ -30,9 +30,9 @@
 
 #define IKEA_PRIVATE_CLUSTER  0xFC7F
 
-#define READ_ATTR_TSN_UNKNOWN 0x00
-#define READ_ATTR_TSN_SYNC    0x01
-#define READ_ATTR_TSN_ASYNC   0x02
+#define ZCL_CMD_TSN_UNKNOWN 0x00
+#define ZCL_CMD_TSN_SYNC    0x01
+#define ZCL_CMD_TSN_ASYNC   0x02
 
 
 #define ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID 0x0021
@@ -54,6 +54,7 @@ typedef struct zbg_device_params_s {
   uint32_t model_id;
   bool rejoined;
   bool ZC_binding;
+  bool rejoin_after_leave;
   esp_zb_ieee_addr_t ieee_addr;
   uint8_t endpoint;
   uint16_t cluster_id;
@@ -116,6 +117,7 @@ public:
   void readClusterReportCfgCmd(zbg_device_params_t * device, uint16_t cluster_id, uint16_t attribute_id, bool ack);
 
   bool sendAttributeRead(zbg_device_params_t * device, int16_t cluster_id, uint16_t attribute_id, bool ack = false);
+  void sendAttributesRead(zbg_device_params_t * device, int16_t cluster_id, uint8_t attr_number, uint16_t *attribute_ids);
   void sendAttributeWrite( zbg_device_params_t * device, int16_t cluster_id, uint16_t attribute_id,
                                         esp_zb_zcl_attr_type_t attribute_type, uint16_t attribute_size, void *attribute_value, uint8_t manuf_specific = 0, uint16_t manuf_code = 0);
   void sendIASzoneEnrollResponseCmd(zbg_device_params_t *device, uint8_t enroll_rsp_code, uint8_t zone_id);
@@ -142,6 +144,9 @@ public:
   }
   void onHumidityReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, float, signed char rssi)) {
     _on_humidity_receive = callback;
+  }
+  void onPressureReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, float, signed char rssi)) {
+    _on_pressure_receive = callback;
   }
   void onIlluminanceReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t, signed char rssi)) {
     _on_illuminance_receive = callback;
@@ -175,6 +180,9 @@ public:
    }
    void onColorSaturationReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, signed char rssi)) {
     _on_color_saturation_receive = callback;
+   }
+  void onColorTemperatureReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t, signed char rssi)) {
+    _on_color_temperature_receive = callback;
    }
   void onOnOffCustomCmdReceive(void (*callback)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint8_t, uint8_t, signed char rssi)) {
     _on_on_off_custom_cmd_receive = callback;
@@ -215,12 +223,15 @@ private:
 
   static uint8_t _read_attr_last_tsn;
   static uint8_t _read_attr_tsn_list[256];
+  static uint8_t _custom_cmd_last_tsn;
+  static uint8_t _custom_cmd_tsn_list[256];
   //static bool _read_attr_async;
   static esp_zb_zcl_attribute_t _read_attr_last_result;
 
   void (*_on_IAS_zone_status_change_notification)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, int, signed char rssi);
   void (*_on_temperature_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, float, signed char rssi);
   void (*_on_humidity_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, float, signed char rssi);
+  void (*_on_pressure_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, float, signed char rssi);
   void (*_on_illuminance_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t, signed char rssi);
   void (*_on_occupancy_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, signed char rssi);
   void (*_on_on_off_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, bool, signed char rssi);
@@ -232,7 +243,7 @@ private:
   void (*_on_current_level_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, signed char rssi);
   void (*_on_color_hue_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, signed char rssi);
   void (*_on_color_saturation_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, signed char rssi);
-
+  void (*_on_color_temperature_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint16_t, signed char rssi);
   void (*_on_on_off_custom_cmd_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint8_t, uint8_t, signed char rssi);
   bool (*_on_custom_cmd_receive)(esp_zb_ieee_addr_t ieee_addr, uint16_t, uint16_t, uint8_t, uint8_t, uint8_t *, signed char rssi);
 
@@ -262,9 +273,10 @@ private:
   void zbCmdCustomClusterReq(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id,uint8_t command_id, uint16_t payload_size, uint8_t *payload) override;
   void zbConfigReportResponse(esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, esp_zb_zcl_status_t status, uint8_t direction, 
                              uint16_t attribute_id) override;
-  void zbCmdDefaultResponse( esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, uint8_t resp_to_cmd, esp_zb_zcl_status_t status_code) override;
+  void zbCmdDefaultResponse( uint8_t tsn, esp_zb_zcl_addr_t src_address, uint16_t src_endpoint, uint16_t cluster_id, uint8_t resp_to_cmd, esp_zb_zcl_status_t status_code) override;
 
   void zbDeviceAnnce(uint16_t short_addr, esp_zb_ieee_addr_t ieee_addr) override;
+  void zbDeviceLeave(uint16_t short_addr, esp_zb_ieee_addr_t ieee_addr, uint8_t rejoin) override;
 
   void addBoundDevice(zb_device_params_t *device, uint16_t cluster_id) override;
   bool isDeviceBound(uint16_t short_addr, esp_zb_ieee_addr_t ieee_addr) override;

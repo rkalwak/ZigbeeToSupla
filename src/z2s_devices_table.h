@@ -6,7 +6,7 @@
 #include "priv_auth_data.h"
 #include <supla/tools.h>
 
-typedef struct z2s_device_params_s {
+typedef struct z2s_legacy_device_params_s {
 
   bool valid_record;
   uint32_t            model_id;
@@ -19,6 +19,40 @@ typedef struct z2s_device_params_s {
   char                Supla_channel_name[30];
   uint32_t            Supla_channel_func;
   int8_t              sub_id;
+} z2s_legacy_device_params_t;
+
+/*typedef struct z2s_device_params_s {
+
+  bool                valid_record;
+  uint32_t            model_id;
+  esp_zb_ieee_addr_t  ieee_addr;
+  uint8_t             endpoint;
+  uint16_t            cluster_id;
+  uint16_t            short_addr;
+  uint8_t             Supla_channel;
+  int32_t             Supla_channel_type;
+  char                Supla_channel_name[30];
+  uint32_t            Supla_channel_func;
+  int8_t              sub_id;
+} z2s_device_params_t;
+*/
+
+typedef struct z2s_device_params_s {
+
+  bool valid_record;
+  uint32_t            model_id;
+  esp_zb_ieee_addr_t  ieee_addr;
+  uint8_t             endpoint;
+  uint16_t            cluster_id;
+  uint16_t            short_addr;
+  uint8_t             Supla_channel;
+  uint8_t             Supla_secondary_channel;
+  int32_t             Supla_channel_type;
+  char                Supla_channel_name[30];
+  uint32_t            Supla_channel_func;
+  int8_t              sub_id;
+  uint32_t            user_data_1;
+  uint32_t            user_data_2;
 } z2s_device_params_t;
 
 #define Z2S_CHANNELMAXCOUNT       128
@@ -30,6 +64,9 @@ typedef struct z2s_device_params_s {
 #define ADD_Z2S_DEVICE_STATUS_DT_FULL 0x02 //device table full = device not added
 #define ADD_Z2S_DEVICE_STATUS_DT_FWA  0x03  //device table full while adding = device added partialy
 #define ADD_Z2S_DEVICE_STATUS_DAP     0x04 //device already present
+
+#define USER_DATA_FLAG_SED_TIMEOUT    0x01
+//#define USER_DATA_FLA
 
 extern z2s_device_params_t z2s_devices_table[Z2S_CHANNELMAXCOUNT];
 
@@ -49,12 +86,13 @@ int16_t Z2S_findChannelNumberNextSlot(int16_t prev_slot, esp_zb_ieee_addr_t ieee
                                       int32_t channel_type, int8_t sub_id);
 //int32_t Z2S_findChannelType(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster);
 void Z2S_fillDevicesTableSlot(zbg_device_params_t *device, uint8_t slot, uint8_t channel, int32_t channel_type, int8_t sub_id,
-                              char *name = nullptr, uint32_t func = 0);
+                              char *name = nullptr, uint32_t func = 0, uint8_t secondary_channel = 0xFF);
 
 void Z2S_initSuplaChannels(); 
 
 void Z2S_onTemperatureReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, float temperature, signed char rssi); 
 void Z2S_onHumidityReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, float humidity, signed char rssi); 
+void Z2S_onPressureReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, float pressure, signed char rssi); 
 void Z2S_onIlluminanceReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint16_t illuminance, signed char rssi);
 void Z2S_onOccupancyReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, uint8_t occupancy, signed char rssi);
 void Z2S_onOnOffReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, bool state, signed char rssi); 
@@ -75,5 +113,7 @@ void Z2S_onBTCBoundDevice(zbg_device_params_t *device);
 void Z2S_onBoundDevice(zbg_device_params_t *device, bool last_cluster);
 
 uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id = -1);
+
+void updateTimeout(uint8_t device_id, uint8_t timeout);
 
 #endif
