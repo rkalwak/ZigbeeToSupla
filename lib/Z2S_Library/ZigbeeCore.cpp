@@ -21,6 +21,7 @@ ZigbeeCore::ZigbeeCore() {
   _scan_status = ZB_SCAN_FAILED;
   _started = false;
   _connected = false;
+  _permit_joining = false;
   _scan_duration = 3;  // default scan duration
   _rx_on_when_idle = true;
   if (!lock) {
@@ -139,7 +140,7 @@ bool ZigbeeCore::zigbeeInit(esp_zb_cfg_t *zb_cfg, bool erase_nvs) {
     log_e("Failed to set overall network size");
     return false;
   }
-  err = esp_zb_io_buffer_size_set(254);
+  err = esp_zb_io_buffer_size_set(128);
   if (err != ESP_OK) {
     log_e("Failed to set IO buffer size");
     return false;
@@ -212,7 +213,7 @@ bool ZigbeeCore::zigbeeInit(esp_zb_cfg_t *zb_cfg, bool erase_nvs) {
   /*esp_zb_set_extended_pan_id(extended_pan_id);*/
 
   // Create Zigbee task and start Zigbee stack
-  xTaskCreate(esp_zb_task, "Zigbee_main", 4096, NULL, 5, NULL);
+  xTaskCreate(esp_zb_task, "Zigbee_main", 8192, NULL, 5, NULL);
 
   return true;
 }
@@ -383,8 +384,10 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
       if ((zigbee_role_t)Zigbee.getRole() == ZIGBEE_COORDINATOR) {
         if (err_status == ESP_OK) {
           if (*(uint8_t *)esp_zb_app_signal_get_params(p_sg_p)) {
+            Zigbee.setNetworkOpen(true);
             log_i("Network(0x%04hx) is open for %d seconds", esp_zb_get_pan_id(), *(uint8_t *)esp_zb_app_signal_get_params(p_sg_p));
           } else {
+            Zigbee.setNetworkOpen(false);
             log_i("Network(0x%04hx) closed, devices joining not allowed.", esp_zb_get_pan_id());
           }
         }

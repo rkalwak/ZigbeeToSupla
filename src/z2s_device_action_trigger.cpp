@@ -11,7 +11,7 @@ void initZ2SDeviceActionTrigger(int16_t channel_number_slot) {
   
   Supla_Z2S_ActionTrigger->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
 
-  if (z2s_devices_table[channel_number_slot].Supla_channel_func) 
+  if (strlen(z2s_devices_table[channel_number_slot].Supla_channel_name) > 0) 
     Supla_Z2S_ActionTrigger->setInitialCaption(z2s_devices_table[channel_number_slot].Supla_channel_name);
   
   if (z2s_devices_table[channel_number_slot].Supla_channel_func !=0) 
@@ -41,6 +41,8 @@ void msgZ2SDeviceActionTrigger(int16_t channel_number_slot, signed char rssi) {
     return;
   }
 
+  Z2S_updateZBDeviceLastSeenMs(z2s_devices_table[channel_number_slot].ieee_addr, millis());
+  
   auto element = Supla::Element::getElementByChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);
 
   if (element != nullptr) { // && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_RELAY) {
@@ -52,7 +54,7 @@ void msgZ2SDeviceActionTrigger(int16_t channel_number_slot, signed char rssi) {
   }
 }
 
-void msgZ2SDeviceActionTriggerBatteryLevel(int16_t channel_number_slot, uint8_t battery_level, signed char rssi) {
+/*void msgZ2SDeviceActionTriggerBatteryLevel(int16_t channel_number_slot, uint8_t battery_level, signed char rssi) {
 
   if (channel_number_slot < 0) {
     log_e("msgZ2SDeviceActionTriggerBatteryLevel - invalid channel number slot");
@@ -68,4 +70,4 @@ void msgZ2SDeviceActionTriggerBatteryLevel(int16_t channel_number_slot, uint8_t 
     Supla_Z2S_ActionTrigger->getChannel()->setBatteryLevel(battery_level);
     //Supla_Z2S_ActionTrigger->getChannel()->setBridgeSignalStrength(Supla::rssiToSignalStrength(rssi));     
   }
-}
+}*/

@@ -16,75 +16,56 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#ifndef SRC_SUPLA_CONTROL_Z2S_RGBW_BASE_H_
-#define SRC_SUPLA_CONTROL_Z2S_RGBW_BASE_H_
+#ifndef SRC_SUPLA_CONTROL_DIMMER_INPUT_INTERFACE_H_
+#define SRC_SUPLA_CONTROL_DIMMER_INPUT_INTERFACE_H_
 
 #include <supla/action_handler.h>
 #include <supla/actions.h>
 #include <supla/channel_element.h>
+#include "ZigbeeGateway.h"
 
 
 namespace Supla {
 namespace Control {
-class Z2S_RGBWBase : public ChannelElement, public ActionHandler {
+class DimmerInputInterface : public ChannelElement, public ActionHandler {
 
 public:
 
-  Z2S_RGBWBase();
+  DimmerInputInterface(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_t dimmer_mode);
 
   int32_t handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) override;
-  virtual void turnOn() = 0;
-  virtual void turnOff() = 0;
-  virtual void toggle() = 0;
-  virtual bool isOn() = 0;
 
-  virtual void turnOnDimmer() = 0;
-  virtual void turnOffDimmer() = 0;
+  void fillSuplaChannelNewValue(TSD_SuplaChannelNewValue *value) override;
 
-  virtual void turnOnRGB() = 0;
-  virtual void turnOffRGB() = 0;
-
-  virtual void toggleDimmerRGB() = 0;
-
-  
-  virtual bool isDimmerOn() = 0;
-  virtual bool isRGBOn() = 0;
-
-  
   //void onInit() override;
   void iterateAlways() override;
 
   virtual void handleAction(int event, int action) override {};
 
-  virtual void sendValueToDevice(uint8_t red,
-                                 uint8_t green,
-                                 uint8_t blue,
-                                 uint8_t colorBrightness,
-				 uint8_t brightness) = 0;
+  virtual void sendValueToDevice(uint8_t brightness); //= 0;
 
-  virtual void setValueOnServer(uint8_t red,
-                                uint8_t green,
-                                uint8_t blue,
-                                uint8_t colorBrightness,
-				uint8_t brightness);
+  virtual void setValueOnServer(uint16_t value);
 
-  virtual void setStateOnServer(bool state);
+  //virtual void setStateOnServer(bool state);
+
+  virtual void ping();
+
+  void setDimmerMode(uint8_t dimmer_mode);
+  uint8_t getDimmerMode();
 
 
 protected:
 
-  bool    _state;
-  bool    _toggle = false;
+  ZigbeeGateway *_gateway = nullptr;
+  zbg_device_params_t 	_device;
+  uint8_t _dimmer_mode; //= Z2S_SEND_TO_LEVEL_DIMMER;
 
-  uint8_t _last_red = 0;
-  uint8_t _last_green = 0;
-  uint8_t _last_blue = 0;
-  uint8_t _last_colorBrightness = 0;
   uint8_t _last_brightness = 0;
+  uint8_t _brightness = 0;
 
   uint32_t _lastMsgReceivedMs = 0;
 
-}; //Z2S_RGBBase
+}; //DimmerInputInterface
 
 } //Control
 }//Supla
