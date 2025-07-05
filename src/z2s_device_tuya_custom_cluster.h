@@ -48,10 +48,18 @@
 #define TUYA_PRESENCE_SENSOR_5_PRESENCE_DP     0x65
 #define TUYA_PRESENCE_SENSOR_5_ILLUMINANCE_DP  0x0C
 
+#define TUYA_PRESENCE_SENSOR_4IN1_BATTERY_DP     0x6E
+#define TUYA_PRESENCE_SENSOR_4IN1_HUMIDITY_DP    0x65
+#define TUYA_PRESENCE_SENSOR_4IN1_TEMPERATURE_DP 0x6F
+
 #define TUYA_RAIN_SENSOR_ILLUMINANCE_DP             0x65
 #define TUYA_RAIN_SENSOR_ILLUMINANCE_AVG_20_MIN_DP  0x66
 #define TUYA_RAIN_SENSOR_ILLUMINANCE_MAX_TODAY_DP   0x67
 #define TUYA_RAIN_SENSOR_RAIN_INTENSITY_DP          0x69
+
+#define TUYA_RAIN_SENSOR_2_RAIN_DP                  0x01
+#define TUYA_RAIN_SENSOR_2_ILLUMINANCE_DP           0x66
+#define TUYA_RAIN_SENSOR_2_BATTERY_DP               0x68
 
 #define TUYA_EF00_SWITCH_2X3_BUTTON_1_DP     0x01
 #define TUYA_EF00_SWITCH_2X3_BUTTON_2_DP     0x02
@@ -80,6 +88,14 @@
 #define TUYA_3PHASES_ELECTRICITY_METER_POWER_FACTOR_C_DP    0x7E//[126, "power_factor_c", tuya.valueConverter.raw],
 #define TUYA_3PHASES_ELECTRICITY_METER_ENERGY_C_DP          0x7F//[127, "energy_c", tuya.valueConverter.divideBy100],
 #define TUYA_3PHASES_ELECTRICITY_METER_ENERGY_PRODUCED_C_DP 0x80//[128, "energy_produced_c", tuya.valueConverter.divideBy100],
+
+#define TUYA_1PHASE_ELECTRICITY_METER_ENERGY_A_DP          0x01//[1, "energy", tuya.valueConverter.divideBy100],
+#define TUYA_1PHASE_ELECTRICITY_METER_ENERGY_PRODUCED_A_DP 0x17//[23, "produced_energy", tuya.valueConverter.divideBy100],
+#define TUYA_1PHASE_ELECTRICITY_METER_AC_FREQUENCY_DP      0x20//[32, "ac_frequency", tuya.valueConverter.divideBy100],
+#define TUYA_1PHASE_ELECTRICITY_METER_POWER_FACTOR_A_DP    0x32//[50, "power_factor", tuya.valueConverter.raw],
+#define TUYA_1PHASE_ELECTRICITY_METER_VOLTAGE_A_DP         0x66//[102, "voltage_a", tuya.valueConverter.divideBy10],
+#define TUYA_1PHASE_ELECTRICITY_METER_CURRENT_A_DP         0x67//[103, "current_a", tuya.valueConverter.divideBy1000],
+#define TUYA_1PHASE_ELECTRICITY_METER_POWER_A_DP           0x68//[104, "power", tuya.valueConverter.raw]
 
 #define MOES_ALARM_BATTERY_PERCENTAGE_DP   0x0F //15 02 04
 #define MOES_ALARM_MELODY_DP               0x15 //21 ENUM

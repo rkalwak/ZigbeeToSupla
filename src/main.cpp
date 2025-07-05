@@ -1,17 +1,20 @@
 #include <Arduino.h>
+
 #include <ZigbeeGateway.h>
 
 #include "esp_coexist.h"
-
-#include <SuplaDevice.h>
 
 #include <priv_auth_data.h>
 
 #ifndef USE_SUPLA_WEB_SERVER
 
-  #include "z2s_web_gui.h"
+#include "z2s_web_gui.h"
 
 #endif //USE_SUPLA_WEB_SERVER
+
+
+#include <SuplaDevice.h>
+
 #include "z2s_devices_database.h"
 #include "z2s_devices_table.h"
 #include "z2s_device_general_purpose_measurement.h"
@@ -63,21 +66,20 @@
 
 #define GATEWAY_ENDPOINT_NUMBER 1
 
-#define BUTTON_PIN 9     // Boot button for C6/H2
-#define CFG_BUTTON_PIN 9 // Boot button for C6/H2
-#define WIFI_ENABLE 3
-#define WIFI_ANT_CONFIG 14
+#define BUTTON_PIN                  9  //Boot button for C6/H2
+#define CFG_BUTTON_PIN              9  //Boot button for C6/H2
+#define WIFI_ENABLE                 3
+#define WIFI_ANT_CONFIG             14
 
 #define REFRESH_PERIOD              10 * 1000 //miliseconds
-#define TIME_CLUSTER_REFRESH_MS     60 * 1000 //miliseconds
 
-#define USE_WEB_CONFIG_ON_STARTUP
+#define TIME_CLUSTER_REFRESH_MS     60 * 1000 //miliseconds
 
 ZigbeeGateway zbGateway = ZigbeeGateway(GATEWAY_ENDPOINT_NUMBER);
 
-Supla::Eeprom eeprom;
-Supla::ESPWifi wifi(SUPLA_WIFI_SSID, SUPLA_WIFI_SSID);
-Supla::LittleFsConfig configSupla(2048);
+Supla::Eeprom             eeprom;
+Supla::ESPWifi            wifi; //(SUPLA_WIFI_SSID, SUPLA_WIFI_SSID);
+Supla::LittleFsConfig     configSupla (2048);
 
 constexpr uint8_t LED_PIN = 8;
 constexpr uint8_t NUM_LEDS = 1;
@@ -104,7 +106,7 @@ uint8_t write_mask;
 uint16_t write_mask_16;
 uint32_t write_mask_32;
 
-uint8_t custom_cmd_payload[10]; //TODO - include RAW/STRING
+uint8_t custom_cmd_payload[64]; //TODO - include RAW/STRING 0.8.51 increased 10->64
 uint8_t write_attribute_payload[20];
 
 
@@ -119,6 +121,7 @@ Supla::Sensor::GeneralPurposeMeasurement *Test_GeneralPurposeMeasurement = nullp
   const static char PARAM_TXT1[] = "SEDtimeout";
 
 #endif //USE_SUPLA_WEB_SERVER
+
 
 
 void Z2S_nwk_scan_neighbourhood(bool toTelnet = false) {
@@ -1070,6 +1073,65 @@ int spiffs_log_vprintf(const char *fmt, va_list args) {
   }
   return ret;
 }
+void enableZ2SNotifications() {
+
+  //  Zigbee Gateway notifications
+
+  zbGateway.onTemperatureReceive(Z2S_onTemperatureReceive);
+  zbGateway.onHumidityReceive(Z2S_onHumidityReceive);
+  zbGateway.onPressureReceive(Z2S_onPressureReceive);
+  zbGateway.onIlluminanceReceive(Z2S_onIlluminanceReceive);
+  zbGateway.onFlowReceive(Z2S_onFlowReceive);
+  zbGateway.onOccupancyReceive(Z2S_onOccupancyReceive);
+  zbGateway.onOnOffReceive(Z2S_onOnOffReceive);
+  zbGateway.onElectricalMeasurementReceive(Z2S_onElectricalMeasurementReceive);
+  zbGateway.onCurrentSummationReceive(Z2S_onCurrentSummationReceive);
+  zbGateway.onCurrentLevelReceive(Z2S_onCurrentLevelReceive);
+  zbGateway.onColorHueReceive(Z2S_onColorHueReceive);
+  zbGateway.onColorSaturationReceive(Z2S_onColorSaturationReceive);
+  zbGateway.onThermostatTemperaturesReceive(Z2S_onThermostatTemperaturesReceive);
+  zbGateway.onThermostatModesReceive(Z2S_onThermostatModesReceive);
+  zbGateway.onWindowCoveringReceive(Z2S_onWindowCoveringReceive);
+  zbGateway.onSonoffCustomClusterReceive(Z2S_onSonoffCustomClusterReceive);
+  zbGateway.onBatteryReceive(Z2S_onBatteryReceive);
+  zbGateway.onCustomCmdReceive(Z2S_onCustomCmdReceive);
+  zbGateway.onCmdCustomClusterReceive(Z2S_onCmdCustomClusterReceive);
+  zbGateway.onIASzoneStatusChangeNotification(Z2S_onIASzoneStatusChangeNotification);
+
+  zbGateway.onBoundDevice(Z2S_onBoundDevice);
+  zbGateway.onBTCBoundDevice(Z2S_onBTCBoundDevice);
+
+  zbGateway.onDataSaveRequest(Z2S_onDataSaveRequest);
+}
+
+void disableZ2SNotifications() {
+
+//  switch off Zigbee Gateway notifications
+
+  zbGateway.onTemperatureReceive(nullptr);
+  zbGateway.onHumidityReceive(nullptr);
+  zbGateway.onPressureReceive(nullptr);
+  zbGateway.onIlluminanceReceive(nullptr);
+  zbGateway.onFlowReceive(nullptr);
+  zbGateway.onOccupancyReceive(nullptr);
+  zbGateway.onOnOffReceive(nullptr);
+  zbGateway.onElectricalMeasurementReceive(nullptr);
+  zbGateway.onCurrentSummationReceive(nullptr);
+  zbGateway.onCurrentLevelReceive(nullptr);
+  zbGateway.onColorHueReceive(nullptr);
+  zbGateway.onColorSaturationReceive(nullptr);
+  zbGateway.onThermostatTemperaturesReceive(nullptr);
+  zbGateway.onThermostatModesReceive(nullptr);
+  zbGateway.onWindowCoveringReceive(nullptr);
+  zbGateway.onSonoffCustomClusterReceive(nullptr);
+  zbGateway.onBatteryReceive(nullptr);
+  zbGateway.onCustomCmdReceive(nullptr);
+  zbGateway.onCmdCustomClusterReceive(nullptr);
+  zbGateway.onIASzoneStatusChangeNotification(nullptr);
+  zbGateway.onBoundDevice(nullptr);
+  zbGateway.onBTCBoundDevice(nullptr);
+  zbGateway.onDataSaveRequest(nullptr);
+}
 
 void setup()
 {
@@ -1109,18 +1171,6 @@ void setup()
 
 #endif
 
-#ifdef USE_SUPLA_WEB_SERVER
-
-  auto selectCmd = new Supla::Html::SelectCmdInputParameter(PARAM_CMD1, "Z2S Commands");
-  selectCmd->registerCmd("OPEN ZIGBEE NETWORK (180 SECONDS)", Supla::ON_EVENT_1);
-  selectCmd->registerCmd("!RESET ZIGBEE STACK!", Supla::ON_EVENT_2);
-  selectCmd->registerCmd("!!CLEAR Z2S TABLE!! (RESET RECOMMENDED)", Supla::ON_EVENT_3);
-  selectCmd->registerCmd("NWK SCAN (EXPERIMENTAL)", Supla::ON_EVENT_4);
-  
-  //selectCmd->registerCmd("TOGGLE", Supla::ON_EVENT_3);
-
-#endif //USE_SUPLA_WEB_SERVER
-
   // Test_GeneralPurposeMeasurement = new Supla::Sensor::GeneralPurposeMeasurement();
 //  Test_GeneralPurposeMeasurement->getChannel()->setChannelNumber(102);
 //  Test_GeneralPurposeMeasurement->setValue(0);
@@ -1134,15 +1184,6 @@ void setup()
 
   auto AHwC = new Supla::ActionHandlerWithCallbacks();
   AHwC->setActionHandlerCallback(supla_callback_bridge);
-
-#ifdef USE_SUPLA_WEB_SERVER
-
-  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_1, true);
-  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_2, true);
-  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_3, true);
-  selectCmd->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_4, true);
-
-#endif
 
   toggleNotifications->addAction(0x4000, AHwC, Supla::ON_TURN_ON, false);
   toggleNotifications->addAction(0x4001, AHwC, Supla::ON_TURN_OFF, false);
@@ -1168,68 +1209,7 @@ void setup()
 
   Z2S_initSuplaChannels();
 
-#ifdef USE_SUPLA_WEB_SERVER
-
-  new Supla::Html::CustomParameter(PARAM_TXT1,"SED Timeout (h)", 0);
-  
-  auto selectCmd2 = new Supla::Html::SelectCmdInputParameter(PARAM_CMD2, "Remove Z2S Device");
-  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) 
-    if (z2s_devices_table[devices_counter].valid_record) {
-      char device_removal_cmd[128];
-      sprintf(device_removal_cmd, "Remove Z2SDevice [%x:%x:%x:%x:%x:%x:%x:%x] channel # %d",
-      z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5],
-      z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2],
-      z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0], z2s_devices_table[devices_counter].Supla_channel);
-      log_i("cmd %s, len %d", device_removal_cmd, strlen(device_removal_cmd));
-      selectCmd2->registerCmd(device_removal_cmd, Supla::ON_EVENT_5 + devices_counter);
-      selectCmd2->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_5 + devices_counter, true);
-    }
-
-  auto selectCmd3 = new Supla::Html::SelectCmdInputParameter(PARAM_CMD3, "Update Z2S Device timeout (h)");
-  for (uint8_t devices_counter = 0; devices_counter < Z2S_CHANNELMAXCOUNT; devices_counter++) 
-    if (z2s_devices_table[devices_counter].valid_record) {
-      char device_removal_cmd[128];
-      sprintf(device_removal_cmd, "Update Z2SDevice [%x:%x:%x:%x:%x:%x:%x:%x] channel # %d",
-      z2s_devices_table[devices_counter].ieee_addr[7], z2s_devices_table[devices_counter].ieee_addr[6], z2s_devices_table[devices_counter].ieee_addr[5],
-      z2s_devices_table[devices_counter].ieee_addr[4], z2s_devices_table[devices_counter].ieee_addr[3], z2s_devices_table[devices_counter].ieee_addr[2],
-      z2s_devices_table[devices_counter].ieee_addr[1], z2s_devices_table[devices_counter].ieee_addr[0], z2s_devices_table[devices_counter].Supla_channel);
-      log_i("cmd %s, len %d", device_removal_cmd, strlen(device_removal_cmd));
-      selectCmd3->registerCmd(device_removal_cmd, Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT + devices_counter);
-      selectCmd3->addAction(Supla::TURN_ON, AHwC, Supla::ON_EVENT_5 + Z2S_CHANNELMAXCOUNT + devices_counter, true);
-    }
-
-#endif //USE_SUPLA_WEB_SERVER
-
-  //  Zigbee Gateway notifications
-
-  zbGateway.onTemperatureReceive(Z2S_onTemperatureReceive);
-  zbGateway.onHumidityReceive(Z2S_onHumidityReceive);
-  zbGateway.onPressureReceive(Z2S_onPressureReceive);
-  zbGateway.onIlluminanceReceive(Z2S_onIlluminanceReceive);
-  zbGateway.onFlowReceive(Z2S_onFlowReceive);
-  zbGateway.onOccupancyReceive(Z2S_onOccupancyReceive);
-  zbGateway.onOnOffReceive(Z2S_onOnOffReceive);
-  /*zbGateway.onRMSVoltageReceive(Z2S_onRMSVoltageReceive);
-  zbGateway.onRMSCurrentReceive(Z2S_onRMSCurrentReceive);
-  zbGateway.onRMSActivePowerReceive(Z2S_onRMSActivePowerReceive);*/
-  zbGateway.onElectricalMeasurementReceive(Z2S_onElectricalMeasurementReceive);
-  zbGateway.onCurrentSummationReceive(Z2S_onCurrentSummationReceive);
-  zbGateway.onCurrentLevelReceive(Z2S_onCurrentLevelReceive);
-  zbGateway.onColorHueReceive(Z2S_onColorHueReceive);
-  zbGateway.onColorSaturationReceive(Z2S_onColorSaturationReceive);
-  zbGateway.onThermostatTemperaturesReceive(Z2S_onThermostatTemperaturesReceive);
-  zbGateway.onThermostatModesReceive(Z2S_onThermostatModesReceive);
-  zbGateway.onWindowCoveringReceive(Z2S_onWindowCoveringReceive);
-  zbGateway.onSonoffCustomClusterReceive(Z2S_onSonoffCustomClusterReceive);
-  zbGateway.onBatteryReceive(Z2S_onBatteryReceive);
-  zbGateway.onCustomCmdReceive(Z2S_onCustomCmdReceive);
-  zbGateway.onCmdCustomClusterReceive(Z2S_onCmdCustomClusterReceive);
-  zbGateway.onIASzoneStatusChangeNotification(Z2S_onIASzoneStatusChangeNotification);
-
-  zbGateway.onBoundDevice(Z2S_onBoundDevice);
-  zbGateway.onBTCBoundDevice(Z2S_onBTCBoundDevice);
-
-  zbGateway.onDataSaveRequest(Z2S_onDataSaveRequest);
+  enableZ2SNotifications();
 
   zbGateway.setManufacturerAndModel("Supla", "Z2SGateway");
   zbGateway.allowMultipleBinding(true);
@@ -1280,7 +1260,7 @@ uint8_t tuya_dp_data[10];
 void loop()
 {
 
-  #ifndef USE_SUPLA_WEB_SERVER
+#ifndef USE_SUPLA_WEB_SERVER
 
   if ((!GUIstarted) && SuplaDevice.getCurrentStatus() == STATUS_CONFIG_MODE) {
     GUIstarted = true;
@@ -1300,7 +1280,12 @@ void loop()
 
   SuplaDevice.iterate();
 
-   if (is_Telnet_server) telnet.loop();
+#ifndef USE_SUPLA_WEB_SERVER
+
+  
+#endif //USE_SUPLA_WEB_SERVER
+
+  if (is_Telnet_server) telnet.loop();
   
   if ((!Zigbee.started()) && SuplaDevice.getCurrentStatus() == STATUS_REGISTERED_AND_READY) {
   
@@ -1344,7 +1329,13 @@ void loop()
                                                                            ESP_ZB_ZCL_ATTR_TIME_LOCAL_TIME_ID)->data_p);
 
     log_i("Local Time Cluster UTC time attribute %lu, local time attribute %lu", utc_time_attribute, local_time_attribute);
-    Z2S_updateWebGUI();
+    
+#ifndef USE_SUPLA_WEB_SERVER
+
+    if (GUIstarted)
+      Z2S_updateWebGUI();
+
+#endif //USE_SUPLA_WEB_SERVER
 
     _time_cluster_last_refresh_ms = millis();
   }
@@ -1352,6 +1343,7 @@ void loop()
   if (millis() - _status_led_last_refresh_ms > 1000) {
 
     _status_led_last_mode = _status_led_mode;
+    _status_led_last_refresh_ms = millis();
     
     if (Zigbee.isNetworkOpen())
       _status_led_mode = 1;
@@ -1367,6 +1359,13 @@ void loop()
       
       rgbLed.show();
     }
+
+#ifndef USE_SUPLA_WEB_SERVER
+
+    if (GUIstarted)
+      Z2S_loopWebGUI();
+
+#endif //USE_SUPLA_WEB_SERVER
   }
 
   if (millis() - refresh_time > REFRESH_PERIOD) {
@@ -1418,32 +1417,7 @@ void loop()
 
   if (zbGateway.isNewDeviceJoined()) {
 
-    //  switch off Zigbee Gateway notifications
-
-    zbGateway.onTemperatureReceive(nullptr);
-    zbGateway.onHumidityReceive(nullptr);
-    zbGateway.onPressureReceive(nullptr);
-    zbGateway.onIlluminanceReceive(nullptr);
-    zbGateway.onFlowReceive(nullptr);
-    zbGateway.onOccupancyReceive(nullptr);
-    zbGateway.onOnOffReceive(nullptr);
-    zbGateway.onElectricalMeasurementReceive(nullptr);
-    zbGateway.onCurrentSummationReceive(nullptr);
-    zbGateway.onCurrentLevelReceive(nullptr);
-    zbGateway.onColorHueReceive(nullptr);
-    zbGateway.onColorSaturationReceive(nullptr);
-    zbGateway.onThermostatTemperaturesReceive(nullptr);
-    zbGateway.onThermostatModesReceive(nullptr);
-    zbGateway.onWindowCoveringReceive(nullptr);
-    zbGateway.onSonoffCustomClusterReceive(nullptr);
-    zbGateway.onBatteryReceive(nullptr);
-    zbGateway.onCustomCmdReceive(nullptr);
-    zbGateway.onCmdCustomClusterReceive(nullptr);
-    zbGateway.onIASzoneStatusChangeNotification(nullptr);
-    zbGateway.onBoundDevice(nullptr);
-    zbGateway.onBTCBoundDevice(nullptr);
-    zbGateway.onDataSaveRequest(nullptr);
-    
+    disableZ2SNotifications();
     
     zbGateway.clearNewDeviceJoined();
     zbGateway.printJoinedDevices();
@@ -1455,7 +1429,11 @@ void loop()
       rgbLed.setPixelColor(0, rgbLed.Color(0, 128, 128));
       rgbLed.show();
 
+#ifndef USE_SUPLA_WEB_SERVER
+
       Z2S_stopWebGUI();
+
+#endif //USE_SUPLA_WEB_SERVER
 
       //do some Tuya vodoo - just in case Tuya device is paired
       
@@ -1632,12 +1610,24 @@ void loop()
                             Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_ILLUMINANCE_SID);
                           } break;
 
+                          case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_4IN1: {
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_PRESENCE_SID, "PRESENCE", SUPLA_CHANNELFNC_ALARMARMAMENTSENSOR);
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_TEMPHUMIDITY_SID, "T&H");
+                            Z2S_addZ2SDevice(joined_device, TUYA_PRESENCE_SENSOR_ILLUMINANCE_SID, "ILLUMINANCE",
+                                             SUPLA_CHANNELFNC_GENERAL_PURPOSE_MEASUREMENT, "lx");
+                          } break;
+
                           case Z2S_DEVICE_DESC_TUYA_RAIN_SENSOR: {
                             Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_RAIN_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_ILLUMINANCE_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_ILLUMINANCE_AVG_20_MIN_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_ILLUMINANCE_MAX_TODAY_SID);
                             Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_RAIN_INTENSITY_SID);
+                          } break;
+
+                          case Z2S_DEVICE_DESC_TUYA_RAIN_SENSOR_2: {
+                            Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_RAIN_SID);
+                            Z2S_addZ2SDevice(joined_device, TUYA_RAIN_SENSOR_ILLUMINANCE_SID);
                           } break;
 
                           case Z2S_DEVICE_DESC_TUYA_3PHASES_ELECTRICITY_METER: {
@@ -1946,10 +1936,13 @@ void loop()
                 case Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_SENSOR:
                 case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR:
                 case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_5:
+                case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_4IN1:
                 case Z2S_DEVICE_DESC_TUYA_CO_DETECTOR:
                 case Z2S_DEVICE_DESC_TUYA_RAIN_SENSOR:
+                case Z2S_DEVICE_DESC_TUYA_RAIN_SENSOR_2:
                 case Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3:
                 case Z2S_DEVICE_DESC_TUYA_3PHASES_ELECTRICITY_METER:
+                case Z2S_DEVICE_DESC_TUYA_1PHASE_ELECTRICITY_METER:
                 case Z2S_DEVICE_DESC_TUYA_DIMMER_DOUBLE_SWITCH:
                 case Z2S_DEVICE_DESC_TS0601_TRV_SASWELL:
                 case Z2S_DEVICE_DESC_TS0601_TRV_ME167:
@@ -1977,6 +1970,13 @@ void loop()
         rgbLed.setPixelColor(0, rgbLed.Color(255, 0, 0));
         rgbLed.show();
         delay(1000);
+        enableZ2SNotifications();
+
+#ifndef USE_SUPLA_WEB_SERVER
+
+        Z2S_startWebGUI();
+
+#endif //USE_SUPLA_WEB_SERVER
       }
     }
   }
