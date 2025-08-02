@@ -28,6 +28,8 @@ jobs:
         run: pip install --upgrade platformio
       - name: PlatformIO platform installation
         run: pio pkg install
+      - name: Update ZigbeeLib
+        run: pio lib update Z2S_Library
       - name: Update .platformio\platforms\espressif32\boards\esp32-c6-devkitc-1.json file to enable arduino framework
         uses: restackio/update-json-file-action@2.1
         with:
