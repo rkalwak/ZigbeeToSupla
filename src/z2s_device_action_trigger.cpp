@@ -1,12 +1,19 @@
 #include "z2s_device_action_trigger.h"
+#include <supla/storage/storage.h>
+#include <supla/storage/config.h>
 
 void initZ2SDeviceActionTrigger(int16_t channel_number_slot) {
   
   uint16_t debounce_time = 100;
 
-  if (z2s_devices_table[channel_number_slot].model_id == Z2S_DEVICE_DESC_TUYA_SWITCH_4X3)
-    debounce_time = 1000;
-  
+  // Retrieve debounce time from config if available
+  uint32_t debounce_cfg = Supla::Storage::ConfigInstance()->getUInt32("Z2S_ACTION_TRIGGER_DEBOUNCE_MS", 0);
+  if (debounce_cfg > 0 && debounce_cfg <= 5000) {
+    debounce_time = debounce_cfg;
+  } else if (z2s_devices_table[channel_number_slot].model_id == Z2S_DEVICE_DESC_TUYA_SWITCH_4X3) {
+    debounce_time = 500;
+  }
+
   auto Supla_Z2S_ActionTrigger = new Supla::Control::VirtualRelaySceneSwitch(0xFF ^ SUPLA_BIT_FUNC_CONTROLLINGTHEROLLERSHUTTER, debounce_time);
   
   Supla_Z2S_ActionTrigger->getChannel()->setChannelNumber(z2s_devices_table[channel_number_slot].Supla_channel);

@@ -4,7 +4,12 @@
 #include <ZigbeeGateway.h>
 #include "z2s_devices_database.h"
 #include "priv_auth_data.h"
-#include "z2s_telnet_server.h"
+
+#ifdef USE_TELNET_CONSOLE
+
+  #include "z2s_telnet_server.h"
+
+#endif //USE_TELNET_CONSOLE
 
 #include <supla/tools.h>
 
@@ -93,7 +98,7 @@ typedef struct z2s_device_params_s {
   char                Supla_channel_name[30];
   uint32_t            Supla_channel_func;
   int8_t              sub_id;
-  uint32_t            user_data_1;
+  uint32_t            user_data_1; //Tuya Rain Sensor rain_intensity, RGB mode, HVAC - probably unused
   uint32_t            user_data_2;
   uint32_t            user_data_3;
   uint32_t            user_data_4;
@@ -118,8 +123,8 @@ typedef struct z2s_legacy_zb_device_params_s {
   uint8_t             power_source;
   int8_t              rssi;
   uint8_t             battery_percentage;
-  int8_t              last_rssi;
-  uint8_t             battery_voltage_min_max;
+  uint8_t             battery_voltage_min;
+  uint8_t             battery_voltage_max;
   uint32_t            last_seen_ms;
   uint32_t            keep_alive_ms;
   uint32_t            timeout_ms;
@@ -143,14 +148,14 @@ typedef struct z2s_zb_device_params_s {
   uint8_t             power_source;
   int8_t              rssi;
   uint8_t             battery_percentage;
-  int8_t              last_rssi;
-  uint8_t             battery_voltage_min_max;
+  uint8_t             battery_voltage_min;
+  uint8_t             battery_voltage_max;
   uint32_t            last_seen_ms;
   uint32_t            keep_alive_ms;
   uint32_t            timeout_ms;
   uint32_t            user_data_flags;
-  uint32_t            user_data_1;
-  uint32_t            user_data_2;
+  uint32_t            user_data_1; //Sonoff SWV b31 = 0 (time)/1(volume) b30-b24 cycles# b23-b0 worktime/volume
+  uint32_t            user_data_2;//Sonoff SWV b31-b24 reserved, b23-b0 pause
   uint64_t            user_data_3;
   uint64_t            user_data_4;
   uint8_t             Supla_channels[MAX_ZB_DEVICE_SUPLA_CHANNELS];
@@ -202,6 +207,9 @@ extern bool sendIASNotifications;
 
 const static char   Z2S_ZIGBEE_PRIMARY_CHANNEL      []  PROGMEM = "Z2S_primary_ch";
 
+const static char   Z2S_ENABLE_GUI_ON_START         []  PROGMEM = "Z2S_enable_gui";
+const static char   Z2S_GUI_ON_START_DELAY          []  PROGMEM = "Z2S_gui_delay";
+
 namespace Supla {
 enum Conditions {
   ON_LESS,
@@ -228,6 +236,7 @@ bool      Z2S_loadZBDevicesTable();
 bool      Z2S_clearZBDevicesTable();
 void      Z2S_printZBDevicesTableSlots(bool toTelnet = false);
 uint8_t   Z2S_findZBDeviceTableSlot(esp_zb_ieee_addr_t  ieee_addr);
+bool      Z2S_hasZBDevice(uint32_t desc_id);
 void      Z2S_initZBDevices(uint32_t init_ms);
 void      Z2S_updateZBDeviceLastSeenMs(esp_zb_ieee_addr_t  ieee_addr, uint32_t last_seen_ms);
 
@@ -293,5 +302,11 @@ void updateSuplaBatteryLevel(int16_t channel_number_slot, uint8_t msg_id, uint32
 
 bool z2s_add_action(char *action_name, uint8_t src_channel_id, uint16_t Supla_action, uint8_t dst_channel_id, uint16_t Supla_event, bool condition, 
                     double threshold_1 = 0, double threshold_2 = 0);
+
+bool hasTuyaCustomCluster(uint32_t model_id);
+
+void log_i_telnet2(char *log_line, bool toTelnet = false);
+
+void onTuyaCustomClusterReceive(void (*callback)(uint8_t command_id, uint16_t payload_size, uint8_t * payload_data));
 
 #endif
