@@ -180,8 +180,8 @@
 #define Z2S_DEVICE_DESC_ON_OFF_1                        0x8001
 
 
-#define MAX_BOUND_ENDPOINTS 8
-#define MAX_BOUND_CLUSTERS 16
+#define MAX_BOUND_ENDPOINTS 4
+#define MAX_BOUND_CLUSTERS  8
 
 
 #define TUYA_ON_OFF_CUSTOM_CMD_BUTTON_PRESS_ID       0xFD
@@ -1701,6 +1701,9 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
   { .manufacturer_name = "_TZ3000_qeuvnohg", .model_name = "TS011F", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER, .z2s_device_endpoints_count = 1},
 
+  { .manufacturer_name = "_TZ3000_fukaa7nc", .model_name = "TS011F", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER, .z2s_device_endpoints_count = 1},
+
   { .manufacturer_name = "_TZ3210_5ct6e7ye", .model_name = "TS011F", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER, .z2s_device_endpoints_count = 1},
 
@@ -1728,6 +1731,13 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
                               { 4, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 }}},
 
   { .manufacturer_name = "_TZ3000_kfu8zapd", .model_name = "TS0044", 
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_SWITCH_4X3, .z2s_device_endpoints_count = 4, 
+    .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 },
+                              { 2, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 },
+                              { 3, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 },
+                              { 4, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 }}},
+
+  { .manufacturer_name = "_TZ3000_zgyzgdua", .model_name = "TS0044", 
     .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_SWITCH_4X3, .z2s_device_endpoints_count = 4, 
     .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 },
                               { 2, Z2S_DEVICE_DESC_TUYA_SWITCH_4X3 },
