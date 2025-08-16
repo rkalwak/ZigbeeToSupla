@@ -10,6 +10,7 @@
 #include "z2s_device_electricity_meter.h"
 #include "z2s_device_virtual_relay.h"
 #include "z2s_device_virtual_valve.h"
+#include "TuyaDatapoints.h"
 
 #include <arduino_base64.hpp>
 #include <math.h>
@@ -345,6 +346,39 @@ void processTuyaHvacDataReport(int16_t channel_number_slot, uint16_t payload_siz
       target_heatsetpoint_factor     = TRV603_TARGET_HEATSETPOINT_FACTOR;
       temperature_calibration_factor = TRV603_TEMPERATURE_CALIBRATION_FACTOR;
 
+    } break;
+
+    case Z2S_DEVICE_DESC_TS0601_TRV_GTZ10:
+    case Z2S_DEVICE_DESC_TS0601_TRV_TRV602Z: {
+
+      local_temperature_dp_id        = GTZ10_CMD_SET_LOCAL_TEMPERATURE_1; 
+      current_heating_setpoint_dp_id = GTZ10_CMD_SET_TARGET_HEATSETPOINT_1;
+
+      system_mode_on_dp_id           = GTZ10_CMD_ON_1;
+      system_mode_off_dp_id          = GTZ10_CMD_OFF_1;
+      system_mode_value_on           = GTZ10_CMD_ON_5;
+      system_mode_value_off          = GTZ10_CMD_OFF_5;
+      
+      running_state_dp_id            = (model_id == Z2S_DEVICE_DESC_TS0601_TRV_GTZ10) ? GTZ10_CMD_SET_RUNNING_STATE_1 : TRV602Z_CMD_SET_RUNNING_STATE_1;
+      running_state_value_idle       = GTZ10_CMD_SET_RUNNING_STATE_IDLE;
+      running_state_value_heat       = GTZ10_CMD_SET_RUNNING_STATE_HEAT;
+
+      temperature_calibration_dp_id  = GTZ10_CMD_SET_TEMPERATURE_CALIBRATION_1;
+
+      battery_level_dp_id            = GTZ10_CMD_SET_BATTERY_LEVEL_1;
+
+      schedule_mode_dp_id            = GTZ10_CMD_SET_SCHEDULE_MODE_1;
+      schedule_mode_value_on         = GTZ10_CMD_SET_SCHEDULE_MODE_ON;
+
+      child_lock_dp_id               = GTZ10_CMD_SET_CHILD_LOCK_1;
+      window_detect_dp_id            = GTZ10_CMD_SET_WINDOW_DETECT_1;
+      anti_freeze_dp_id              = GTZ10_CMD_SET_ANTI_FREEZE_1;
+      limescale_protect_dp_id        = GTZ10_CMD_SET_LIMESCALE_PROTECT_1;
+
+      local_temperature_factor       = GTZ10_LOCAL_TEMPERATURE_FACTOR;
+      target_heatsetpoint_factor     = GTZ10_TARGET_HEATSETPOINT_FACTOR;
+      temperature_calibration_factor = GTZ10_TEMPERATURE_CALIBRATION_FACTOR;
+
     } break; 
 
   }
@@ -591,7 +625,7 @@ void processTuya3PhasesElectricityMeterDataReport(int16_t channel_number_slot, u
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_VOLTAGE_A_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
-    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_A_SEL, Tuya_read_dp_result.dp_value / 10, rssi);
+    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_A_SEL, Tuya_read_dp_result.dp_value, rssi);
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_CURRENT_A_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
@@ -615,7 +649,7 @@ void processTuya3PhasesElectricityMeterDataReport(int16_t channel_number_slot, u
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_VOLTAGE_B_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
-    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_B_SEL, Tuya_read_dp_result.dp_value / 10, rssi);
+    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_B_SEL, Tuya_read_dp_result.dp_value, rssi);
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_CURRENT_B_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
@@ -639,7 +673,7 @@ void processTuya3PhasesElectricityMeterDataReport(int16_t channel_number_slot, u
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_VOLTAGE_C_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
-    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_C_SEL, Tuya_read_dp_result.dp_value / 10, rssi);
+    msgZ2SDeviceElectricityMeter(channel_number_slot_5, Z2S_EM_VOLTAGE_C_SEL, Tuya_read_dp_result.dp_value, rssi);
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_3PHASES_ELECTRICITY_METER_CURRENT_C_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
@@ -681,7 +715,7 @@ void processTuya1PhaseElectricityMeterDataReport(int16_t channel_number_slot, ui
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_1PHASE_ELECTRICITY_METER_VOLTAGE_A_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
-    msgZ2SDeviceElectricityMeter(channel_number_slot_1, Z2S_EM_VOLTAGE_A_SEL, Tuya_read_dp_result.dp_value / 10, rssi);
+    msgZ2SDeviceElectricityMeter(channel_number_slot_1, Z2S_EM_VOLTAGE_A_SEL, Tuya_read_dp_result.dp_value, rssi);
 
   Tuya_read_dp_result = Z2S_readTuyaDPvalue(TUYA_1PHASE_ELECTRICITY_METER_CURRENT_A_DP, payload_size, payload);
   if (Tuya_read_dp_result.is_success)
@@ -1265,6 +1299,62 @@ void processTuyaOnOffValveBatteryDataReport(int16_t channel_number_slot, uint16_
   }  
 }
 
+void processGiexSmartValveDataReport(int16_t channel_number_slot, uint16_t payload_size,uint8_t *payload, signed char rssi, uint32_t model_id) {
+
+  Tuya_read_dp_result_t Tuya_read_dp_result;
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_STATE_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_MODE_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_IRRIGATION_START_TIME_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_IRRIGATION_END_TIME_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_CYCLE_IRRIGATION_NUMBER_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_IRRIGATION_TARGET_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_CYCLE_IRRIGATION_INTERVAL_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_WATER_CONSUMED_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_LAST_IRRIGATION_DURATION_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+    
+  }
+
+  Tuya_read_dp_result = Z2S_readTuyaDPvalue(GIEX_WATER_VALVE_BATTERY_DP, payload_size, payload);
+  if (Tuya_read_dp_result.is_success) {
+
+    updateSuplaBatteryLevel(channel_number_slot, ZBD_BATTERY_LEVEL_MSG, Tuya_read_dp_result.dp_value, rssi);
+  }  
+}
+
 void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t payload_size, uint8_t *payload, signed char rssi) {
 
   int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, TUYA_PRIVATE_CLUSTER_EF00, 
@@ -1276,6 +1366,7 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
   uint32_t model_id = z2s_channels_table[channel_number_slot].model_id;
 
   switch (model_id) {
+    
     case Z2S_DEVICE_DESC_TUYA_HVAC_6567C: 
     case Z2S_DEVICE_DESC_TUYA_HVAC_23457:
     case Z2S_DEVICE_DESC_TUYA_HVAC_LEGACY:
@@ -1285,6 +1376,8 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
     case Z2S_DEVICE_DESC_TS0601_TRV_MOES:
     case Z2S_DEVICE_DESC_TS0601_TRV_TRV601:
     case Z2S_DEVICE_DESC_TS0601_TRV_TRV603:
+    case Z2S_DEVICE_DESC_TS0601_TRV_GTZ10:
+    case Z2S_DEVICE_DESC_TS0601_TRV_TRV602Z:
       processTuyaHvacDataReport(channel_number_slot, payload_size, payload, rssi, model_id); break;
 
     case Z2S_DEVICE_DESC_TUYA_DIMMER_DOUBLE_SWITCH: 
@@ -1296,7 +1389,7 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
     case Z2S_DEVICE_DESC_TUYA_SOIL_TEMPHUMIDITY_SENSOR_1:
       processTuyaSoilTempHumiditySensorReport(channel_number_slot, payload_size, payload, rssi, 1); break;
 
-    case Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_SENSOR: 
+    case Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_EF00_SENSOR: 
       processTuyaTempHumiditySensorDataReport(channel_number_slot, payload_size, payload, rssi); break;
 
     case Z2S_DEVICE_DESC_TUYA_SMOKE_DETECTOR: 
@@ -1342,8 +1435,10 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
 
     case Z2S_DEVICE_DESC_TUYA_ON_OFF_VALVE_BATTERY:
       processTuyaOnOffValveBatteryDataReport(channel_number_slot, payload_size, payload, rssi, model_id); break;
-      
 
+    case Z2S_DEVICE_DESC_GIEX_SMART_VALVE:
+      processGiexSmartValveDataReport(channel_number_slot, payload_size, payload, rssi, model_id); break;
+      
     default: 
       log_i("Unknown device model id 0x%x", z2s_channels_table[channel_number_slot].model_id); break;
   }
@@ -1352,10 +1447,12 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint
 void processTuyaCustomCluster(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint8_t command_id, uint16_t payload_size, uint8_t *payload, signed char rssi) {
   log_i("processing Tuya custom cluster 0xEF00, command id 0x%x", command_id);
   switch (command_id) {
+    
     case TUYA_DATA_REPORT_CMD:
     case 0x01:
     case 0x06:
        processTuyaDataReport(ieee_addr, endpoint, payload_size, payload, rssi); break;
+
     case TUYA_MCU_SYNC_TIME: {
       uint8_t time_sync[10];
       struct tm *tptr;
@@ -1405,6 +1502,34 @@ void processTuyaCustomCluster(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, u
       zbGateway.sendCustomClusterCmd(&device, TUYA_PRIVATE_CLUSTER_EF00, TUYA_MCU_SYNC_TIME, ESP_ZB_ZCL_ATTR_TYPE_SET, 10, time_sync, false);
 
     } break;
+
+    case TUYA_MCU_VERSION_RESPONSE: {
+
+      uint8_t seq[2];
+    
+      zbg_device_params_t device = {};
+
+      int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, TUYA_PRIVATE_CLUSTER_EF00, 
+                                                              ALL_SUPLA_CHANNEL_TYPES, NO_CUSTOM_CMD_SID); 
+      if (channel_number_slot < 0) {
+        log_i("TUYA_MCU_VERSION_REQUEST failed - no Supla channel for that device");
+        return;
+      }
+
+      device.endpoint = z2s_channels_table[channel_number_slot].endpoint;
+      device.cluster_id = z2s_channels_table[channel_number_slot].cluster_id;
+      memcpy(device.ieee_addr, z2s_channels_table[channel_number_slot].ieee_addr, 8);
+      device.short_addr = z2s_channels_table[channel_number_slot].short_addr;
+      device.model_id = z2s_channels_table[channel_number_slot].model_id;
+  
+
+      seq[0] = 00;
+      seq[1] = 02;
+
+      log_i("Sending TUYA_VERSION_REQUEST");
+      zbGateway.sendCustomClusterCmd(&device, TUYA_PRIVATE_CLUSTER_EF00, TUYA_MCU_VERSION_REQUEST, ESP_ZB_ZCL_ATTR_TYPE_SET, 2, seq, false);
+    } break;
+    
     default: log_i("Tuya custom cluster 0xEF00 command id 0x%x wasn't processed", command_id); break;
   }
 }

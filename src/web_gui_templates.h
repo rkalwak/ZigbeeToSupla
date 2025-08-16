@@ -1,6 +1,19 @@
 #ifndef WEB_GUI_TEMPLATES_H_
 #define WEB_GUI_TEMPLATES_H_
 
+#include <supla/actions.h>
+#include <supla/events.h>
+
+enum ActionGUIState {
+
+	VIEW_ACTION,
+	NEW_ACTION,
+	EDIT_ACTION,
+	SAVE_ACTION,
+	CANCEL_ACTION,
+	REMOVE_ACTION,
+};
+
 typedef struct zigbee_cluster_s {
 	const char* zigbee_cluster_name;
 	const uint16_t zigbee_cluster_id;
@@ -23,16 +36,31 @@ typedef struct zigbee_attribute_value_s {
 	const uint16_t zigbee_attribute_id;
 	const uint16_t zigbee_cluster_id;
 	const char* zigbee_attribute_value_name;
-	uint32_t zigbee_attribute_value;
+	const uint32_t zigbee_attribute_value;
 } zigbee_attribute_value_t;
 
 typedef struct Tuya_datapoint_type_s {
 	const char* Tuya_datapoint_type_name;
-	uint8_t Tuya_datapoint_type_id;
-	uint16_t Tuya_datapoint_type_length;
+	const uint8_t Tuya_datapoint_type_id;
+	const uint16_t Tuya_datapoint_type_length;
 } Tuya_datapoint_type_t;
 
-static const zigbee_cluster_t zigbee_clusters[] PROGMEM = 
+typedef struct Supla_action_type_s {
+	const Supla::Action	Supla_action_id;
+	const char* Supla_action_name;
+} Supla_action_type_t;
+
+typedef struct Supla_event_type_s {
+	const Supla::Event Supla_event_id;
+	const char* Supla_event_name;
+} Supla_event_type_t;
+
+typedef struct Supla_condition_type_s {
+	const Supla::Conditions Supla_condition_id;
+	const char* Supla_condition_name;
+} Supla_condition_type_t;
+
+static constexpr zigbee_cluster_t zigbee_clusters[] PROGMEM = 
 	{{.zigbee_cluster_name = "BASIC",										.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_BASIC},
 	 {.zigbee_cluster_name = "POWER CONFIG",						.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG},
 	 {.zigbee_cluster_name = "IDENTIFY",								.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY},
@@ -40,6 +68,7 @@ static const zigbee_cluster_t zigbee_clusters[] PROGMEM =
 	 {.zigbee_cluster_name = "SCENES",									.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_SCENES},
 	 {.zigbee_cluster_name = "ON/OFF",									.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF},
 	 {.zigbee_cluster_name = "LEVEL CONTROL",						.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL},
+	 {.zigbee_cluster_name = "MULTISTATE INPUT",				.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_MULTI_INPUT},
 	 {.zigbee_cluster_name = "TIME",										.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TIME},
 	 {.zigbee_cluster_name = "POLL CONTROL",						.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_POLL_CONTROL},
 	 {.zigbee_cluster_name = "WINDOW COVERING",					.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_WINDOW_COVERING},
@@ -56,12 +85,15 @@ static const zigbee_cluster_t zigbee_clusters[] PROGMEM =
 	 {.zigbee_cluster_name = "IAS WD",									.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_IAS_WD},
 	 {.zigbee_cluster_name = "SIMPLE METERING",					.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_METERING},
 	 {.zigbee_cluster_name = "ELECTRICAL MEASUREMENT",	.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT},
-	 {.zigbee_cluster_name = "TUYA (0xE000)",						.zigbee_cluster_id = 0xE000},
-	 {.zigbee_cluster_name = "TUYA (0xE001)",						.zigbee_cluster_id = 0xE001},
-	 {.zigbee_cluster_name = "TUYA (0xEF00)",						.zigbee_cluster_id = 0xEF00},
-	 {.zigbee_cluster_name = "SONOFF (0xFC11)",					.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER}};
+	 {.zigbee_cluster_name = "TUYA (0xE000)",						.zigbee_cluster_id = TUYA_PRIVATE_CLUSTER_0},
+	 {.zigbee_cluster_name = "TUYA (0xE001)",						.zigbee_cluster_id = TUYA_PRIVATE_CLUSTER_1},
+	 {.zigbee_cluster_name = "TUYA (0xEF00)",						.zigbee_cluster_id = TUYA_PRIVATE_CLUSTER_EF00},
+	 {.zigbee_cluster_name = "DEVELCO (0xFC03)",				.zigbee_cluster_id = DEVELCO_CUSTOM_CLUSTER},
+	 {.zigbee_cluster_name = "SONOFF (0xFC11)",					.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER},
+	 {.zigbee_cluster_name = "LUMI (0xFCC0)",						.zigbee_cluster_id = LUMI_CUSTOM_CLUSTER}
+	 };
 
-static const zigbee_datatype_t zigbee_datatypes[] PROGMEM = 
+static constexpr zigbee_datatype_t zigbee_datatypes[] PROGMEM = 
 
 	{{.zigbee_datatype_name = "NULL",			.zigbee_datatype_size = 0x00,	.zigbee_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_NULL},
 	 {.zigbee_datatype_name = "BOOL",			.zigbee_datatype_size = 0x01,	.zigbee_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_BOOL},
@@ -82,7 +114,7 @@ static const zigbee_datatype_t zigbee_datatypes[] PROGMEM =
 	 {.zigbee_datatype_name = "SET",			.zigbee_datatype_size = 0x00,	.zigbee_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_SET}
 	};
 
-static const Tuya_datapoint_type_t Tuya_datapoint_types[] PROGMEM = 
+static constexpr Tuya_datapoint_type_t Tuya_datapoint_types[] PROGMEM = 
 	
 	{{.Tuya_datapoint_type_name = "RAW", 		.Tuya_datapoint_type_id = 0x00, .Tuya_datapoint_type_length = 0x00},
 	 {.Tuya_datapoint_type_name = "BOOL", 	.Tuya_datapoint_type_id = 0x01, .Tuya_datapoint_type_length = 0x01},
@@ -92,7 +124,160 @@ static const Tuya_datapoint_type_t Tuya_datapoint_types[] PROGMEM =
 	 {.Tuya_datapoint_type_name = "BITMAP", .Tuya_datapoint_type_id = 0x05, .Tuya_datapoint_type_length = 0x01}
 	};
 
-static const zigbee_attribute_t zigbee_attributes[] PROGMEM = {
+static constexpr Supla_action_type_t Supla_actions [] PROGMEM = {
+	{
+		.Supla_action_id = Supla::TURN_ON,
+		.Supla_action_name = "TURN ON"
+	},
+	{
+		.Supla_action_id = Supla::TURN_OFF,
+		.Supla_action_name = "TURN OFF"
+	},
+	{
+		.Supla_action_id = Supla::TOGGLE,
+		.Supla_action_name = "TOGGLE"
+	},
+	{
+		.Supla_action_id = Supla::SET,
+		.Supla_action_name = "SET"
+	},
+	{
+		.Supla_action_id = Supla::CLEAR,
+		.Supla_action_name = "CLEAR"
+	},
+	{
+		.Supla_action_id = Supla::OPEN,
+		.Supla_action_name = "OPEN"
+	},
+	{
+		.Supla_action_id = Supla::CLOSE,
+		.Supla_action_name = "CLOSE"
+	},
+	{
+		.Supla_action_id = Supla::STOP,
+		.Supla_action_name = "STOP"
+	},
+	{
+		.Supla_action_id = Supla::BRIGHTEN_ALL,
+		.Supla_action_name = "BRIGHTEN ALL"
+	},
+	{
+		.Supla_action_id = Supla::DIM_ALL,
+		.Supla_action_name = "DIM ALL"
+	},
+	{
+		.Supla_action_id = Supla::ENTER_CONFIG_MODE,
+		.Supla_action_name = "ENTER CONFIG MODE"
+	},
+	{
+		.Supla_action_id = Supla::SOFT_RESTART,
+		.Supla_action_name = "SOFT RESTART"
+	},
+	{
+		.Supla_action_id = Supla::INCREASE_TEMPERATURE,
+		.Supla_action_name = "INCREASE TEMPERATURE"
+	},
+	{
+		.Supla_action_id = Supla::DECREASE_TEMPERATURE,
+		.Supla_action_name = "DECREASE TEMPERATURE"
+	},
+	{
+		.Supla_action_id = Supla::TOGGLE_OFF_MANUAL_WEEKLY_SCHEDULE_MODES,
+		.Supla_action_name = "TOGGLE_OFF/MANUAL/WEEKLY SCHEDULE MODES"
+	},
+	{
+		.Supla_action_id = Supla::SWITCH_TO_MANUAL_MODE,
+		.Supla_action_name = "SWITCH TO MANUAL MODE"
+	},
+	{
+		.Supla_action_id = Supla::SWITCH_TO_WEEKLY_SCHEDULE_MODE,
+		.Supla_action_name = "SWITCH TO WEEKLY SCHEDULE MODE"
+	}
+};
+
+static constexpr Supla_event_type_t Supla_events [] PROGMEM = {
+		{
+			.Supla_event_id = Supla::ON_CHANGE,
+			.Supla_event_name =  "ON CHANGE"
+		},
+		{
+			.Supla_event_id = Supla::ON_CLICK_1,
+			.Supla_event_name =  "ON CLICK 1"
+		},
+		{
+			.Supla_event_id = Supla::ON_TURN_ON,
+			.Supla_event_name =  "ON TURN ON"
+		},
+		{
+			.Supla_event_id = Supla::ON_TURN_OFF,
+			.Supla_event_name =  "ON TURN OFF"
+		},
+		{
+			.Supla_event_id = Supla::ON_OPEN,
+			.Supla_event_name =  "ON VALVE OPEN"
+		},
+		{
+			.Supla_event_id = Supla::ON_CLOSE,
+			.Supla_event_name =  "ON VALVE CLOSE"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_HEATING,
+			.Supla_event_name =  "ON HVAC HEATING"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_STANDBY,
+			.Supla_event_name =  "ON HVAC STANDBY"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_WEEKLY_SCHEDULE_ENABLED,
+			.Supla_event_name =  "ON HVAC WEEKLY SCHEDULE ENABLED"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_WEEKLY_SCHEDULE_DISABLED,
+			.Supla_event_name =  "ON HVAC WEEKLY SCHEDULE DISABLED"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_MODE_OFF,
+			.Supla_event_name =  "ON HVAC MODE OFF"
+		},
+		{
+			.Supla_event_id = Supla::ON_HVAC_MODE_HEAT,
+			.Supla_event_name =  "ON HVAC MODE HEAT"
+		}
+};
+
+static constexpr Supla_condition_type_t Supla_conditions [] PROGMEM = {
+		{
+			.Supla_condition_id = Supla::ON_LESS,
+			.Supla_condition_name =  "ON LESS"
+		},
+		{
+			.Supla_condition_id = Supla::ON_LESS_EQ,
+			.Supla_condition_name =  "ON LESS EQ"
+		},
+		{
+			.Supla_condition_id = Supla::ON_GREATER,
+			.Supla_condition_name =  "ON GREATER"
+		},
+		{
+			.Supla_condition_id = Supla::ON_GREATER_EQ,
+			.Supla_condition_name =  "ON GREATER EQ"
+		},
+		{
+			.Supla_condition_id = Supla::ON_BETWEEN,
+			.Supla_condition_name =  "ON BETWEEN"
+		},
+		{
+			.Supla_condition_id = Supla::ON_BETWEEN_EQ,
+			.Supla_condition_name =  "ON BETWEEN EQ"
+		},
+		{
+			.Supla_condition_id = Supla::ON_EQUAL,
+			.Supla_condition_name =  "ON EQUAL"
+		},
+};
+
+static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 //POWER CONFIG
 	{
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_VOLTAGE_ID, 
@@ -709,11 +894,53 @@ static const zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
 		.zigbee_attribute_name = "TEMPERATURE SENSOR SELECT"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_CURRENT_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "AC CURRENT"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_VOLTAGE_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "AC VOLTAGE"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_POWER_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "AC ACTIVE POWER"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_TODAY_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "ENERGY (TODAY)"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_MONTH_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "ENERGY (MONTH)"
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_YESTERDAY_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
+		.zigbee_attribute_name = "ENERGY (YESTERDAY)"	
+	 },
+	 {
+		.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_OUTLET_CONTROL_PROTECT_ID, 
+	  .zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
+		.zigbee_attribute_name = "OUTLET CONTROL PROTECT"	
 	 }
 };
 	 
 
-static const zigbee_attribute_value_t zigbee_attribute_values [] PROGMEM = {
+static constexpr zigbee_attribute_value_t zigbee_attribute_values [] PROGMEM = {
 
 	{
 		.zigbee_attribute_id = ESP_ZB_ZCL_ATTR_ON_OFF_START_UP_ON_OFF,
@@ -738,6 +965,54 @@ static const zigbee_attribute_value_t zigbee_attribute_values [] PROGMEM = {
 		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
 		.zigbee_attribute_value_name = "RESTORE",
 		.zigbee_attribute_value = 0xFF
+	},
+	{
+		.zigbee_attribute_id = 0x8002,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "OFF",
+		.zigbee_attribute_value = 0
+	},
+	{
+		.zigbee_attribute_id = 0x8002,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "ON",
+		.zigbee_attribute_value = 1
+	},
+	{
+		.zigbee_attribute_id = 0x8002,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "RESTORE",
+		.zigbee_attribute_value = 2
+	},
+	{
+		.zigbee_attribute_id = 0x8001,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "OFF",
+		.zigbee_attribute_value = 0
+	},
+	{
+		.zigbee_attribute_id = 0x8001,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "ON WHEN SWITCH ON",
+		.zigbee_attribute_value = 1
+	},
+	{
+		.zigbee_attribute_id = 0x8001,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "ON WHEN SWITCH OFF",
+		.zigbee_attribute_value = 2
+	},
+	{
+		.zigbee_attribute_id = 0x5000,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "OFF",
+		.zigbee_attribute_value = 0
+	},
+	{
+		.zigbee_attribute_id = 0x5000,
+		.zigbee_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+		.zigbee_attribute_value_name = "ON",
+		.zigbee_attribute_value = 1
 	},
 	{
 		.zigbee_attribute_id = 0xF001,
@@ -798,7 +1073,18 @@ static const zigbee_attribute_value_t zigbee_attribute_values [] PROGMEM = {
 		.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER,
 		.zigbee_attribute_value_name = "EXTERNAL",
 		.zigbee_attribute_value = 0x01
+	},
+	{
+		.zigbee_attribute_id = SONOFF_CUSTOM_CLUSTER_OUTLET_CONTROL_PROTECT_ID,
+		.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER,
+		.zigbee_attribute_value_name = "OFF",
+		.zigbee_attribute_value = 0x00
+	},
+	{
+		.zigbee_attribute_id = SONOFF_CUSTOM_CLUSTER_OUTLET_CONTROL_PROTECT_ID,
+		.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER,
+		.zigbee_attribute_value_name = "ON",
+		.zigbee_attribute_value = 0x01
 	}
 };
-
 #endif //WEB_GUI_TEMPLATES_H_
