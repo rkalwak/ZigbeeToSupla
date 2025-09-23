@@ -22,6 +22,9 @@ void initZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, int16
     case Z2S_DEVICE_DESC_TUYA_RGB_LED_CONTROLLER_XY:
     case Z2S_DEVICE_DESC_RGBW_BULB_XY:
       Supla_Z2S_RGBInterface = new Supla::Control::Z2S_RGBInterface(gateway, device, Z2S_COLOR_XY_RGB); break;
+
+    case Z2S_DEVICE_DESC_PHILIPS_RGBW_BULB:
+      Supla_Z2S_RGBInterface = new Supla::Control::Z2S_RGBInterface(gateway, device, Z2S_PHILIPS_COLOR_XY_RGB); break;
   }
 
   if (Supla_Z2S_RGBInterface) {
@@ -42,7 +45,8 @@ void initZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, int16
   }
 } //initZ2SDeviceRGB
 
-void addZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_t free_slot, char *name, uint32_t func) {
+void addZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, 
+                     uint8_t free_slot, char *name, uint32_t func) {
   
   Supla::ChannelElement *channel_element = nullptr;
   int8_t sub_id = Z2S_COLOR_HS_RGB;
@@ -56,6 +60,9 @@ void addZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_
 
     case Z2S_DEVICE_DESC_IKEA_RGBW_BULB:
       sub_id = Z2S_COLOR_XY_RGB; break;
+
+    case Z2S_DEVICE_DESC_PHILIPS_RGBW_BULB:
+      sub_id = Z2S_PHILIPS_COLOR_XY_RGB; break;
     
   }
   channel_element = new Supla::Control::Z2S_RGBInterface(gateway, device, sub_id);
@@ -64,17 +71,20 @@ void addZ2SDeviceRGB(ZigbeeGateway *gateway, zbg_device_params_t *device, uint8_
     Z2S_fillChannelsTableSlot(device, free_slot, channel_element->getChannelNumber(), SUPLA_CHANNELTYPE_RGBLEDCONTROLLER, -1, name, func);
 }
 
-void msgZ2SDeviceRGB(uint32_t model_id, uint8_t Supla_channel, uint8_t hue, uint8_t saturation, bool state, signed char rssi) {
+void msgZ2SDeviceRGB(uint32_t model_id, uint8_t Supla_channel, uint8_t hue, uint8_t saturation, bool state) {
 
   auto element = Supla::Element::getElementByChannelNumber(Supla_channel);
 
   if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_RGBLEDCONTROLLER) {
+
+    auto Supla_Z2S_RGBInterface = reinterpret_cast<Supla::Control::Z2S_RGBInterface *>(element);
+    Supla_Z2S_RGBInterface->getChannel()->setStateOnline();
+
     switch (model_id) {
+
       case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_A:
       case Z2S_DEVICE_DESC_TUYA_RGBW_BULB_MODEL_B:
       case Z2S_DEVICE_DESC_IKEA_RGBW_BULB: {
-        auto Supla_Z2S_RGBInterface = reinterpret_cast<Supla::Control::Z2S_RGBInterface *>(element);
-        Supla_Z2S_RGBInterface->getChannel()->setStateOnline();
         if ((hue == 0xFF) && (saturation == 0xFF))
         {
         //  Supla_Z2S_TuyaRGBBulb->setStateOnServer(state);
@@ -92,6 +102,8 @@ void msgZ2SDeviceRGB(uint32_t model_id, uint8_t Supla_channel, uint8_t hue, uint
           }
         }  
       } break;
+
+      default: break;
     }
   }
 }

@@ -17,6 +17,9 @@ void initZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *
   uint16_t active_power_multiplier = 0;
   uint16_t active_power_divisor    = 0;
 
+  uint16_t ac_frequency_multiplier = 0;
+  uint16_t ac_frequency_divisor = 0;
+
   bool ignore_zigbee_scaling = false;
 
   switch (z2s_channels_table[channel_number_slot].model_id) {
@@ -33,12 +36,22 @@ void initZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *
       _one_phase = false; 
       voltage_multiplier = 1;
       voltage_divisor    = 10;
+
+      ac_frequency_multiplier = 1;
+      ac_frequency_divisor = 100;
+      
+      ignore_zigbee_scaling = true;
     } break;
 
     case Z2S_DEVICE_DESC_TUYA_1PHASE_ELECTRICITY_METER: {
       _one_phase = true;
       voltage_multiplier = 1;
       voltage_divisor    = 10;
+
+      ac_frequency_multiplier = 1;
+      ac_frequency_divisor = 100;
+      
+      ignore_zigbee_scaling = true;
     } break;
 
     case Z2S_DEVICE_DESC_TUYA_RELAY_ELECTRICITY_METER_A:
@@ -110,20 +123,27 @@ void initZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *
 
   Supla_Z2S_ElectricityMeter->setActivePowerDivisor(active_power_divisor, false);
 
+  Supla_Z2S_ElectricityMeter->setFreqMultiplier(ac_frequency_multiplier, false);
+
+  Supla_Z2S_ElectricityMeter->setFreqDivisor(ac_frequency_divisor, false);
+
 }
 
-void addZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *device, bool isTuya, bool active_query, uint8_t free_slot,
+void addZ2SDeviceElectricityMeter(ZigbeeGateway *gateway, zbg_device_params_t *device, 
+                                  bool isTuya, bool active_query, uint8_t free_slot,
                                   int8_t sub_id, bool one_phase) {
   
-  auto Supla_Z2S_ElectricityMeter = new Supla::Sensor::Z2S_ElectricityMeter(gateway, device, 0, isTuya, active_query, one_phase);
+  auto Supla_Z2S_ElectricityMeter = 
+    new Supla::Sensor::Z2S_ElectricityMeter(gateway, device, 0, isTuya, active_query, one_phase);
   
   if (active_query) 
     z2s_channels_table[free_slot].refresh_secs = 30; //active_query replacement 
   
-  Z2S_fillChannelsTableSlot(device, free_slot, Supla_Z2S_ElectricityMeter->getChannelNumber(), SUPLA_CHANNELTYPE_ELECTRICITY_METER, sub_id);
+  Z2S_fillChannelsTableSlot(device, free_slot, Supla_Z2S_ElectricityMeter->getChannelNumber(), 
+                            SUPLA_CHANNELTYPE_ELECTRICITY_METER, sub_id, "Electricity meter");
 }
 
-void msgZ2SDeviceElectricityMeter(int16_t channel_number_slot, uint8_t selector, int64_t value, signed char rssi) {
+void msgZ2SDeviceElectricityMeter(int16_t channel_number_slot, uint8_t selector, int64_t value) {
 
   Z2S_updateZBDeviceLastSeenMs(z2s_channels_table[channel_number_slot].ieee_addr, millis());
 
