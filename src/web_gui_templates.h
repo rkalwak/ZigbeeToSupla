@@ -4,6 +4,8 @@
 #include <supla/actions.h>
 #include <supla/events.h>
 
+#include "TuyaDatapoints.h"
+
 enum ActionGUIState {
 
 	VIEW_ACTION,
@@ -12,6 +14,7 @@ enum ActionGUIState {
 	SAVE_ACTION,
 	CANCEL_ACTION,
 	REMOVE_ACTION,
+	COPY_ACTION
 };
 
 typedef struct zigbee_cluster_s {
@@ -57,11 +60,11 @@ typedef struct Tuya_datapoint_type_s {
 
 typedef struct Tuya_datapoint_desc_s {
 
-  uint32_t    Tuya_datapoint_desc_id;
+  //uint32_t    Tuya_datapoint_desc_id;
   uint32_t    z2s_device_desc_id;
   uint8_t     Tuya_datapoint_id;
   uint8_t     Tuya_datapoint_type;
-  uint16_t    Tuya_datapoint_length;
+  //uint16_t    Tuya_datapoint_length;
   const char *Tuya_datapoint_name;
   const char *Tuya_datapoint_description;
 } Tuya_datapoint_desc_t;
@@ -94,13 +97,15 @@ typedef struct Supla_condition_type_s {
 	const char* Supla_condition_name;
 } Supla_condition_type_t;
 
-static constexpr char* GUI_MODE_OPTIONS[5] PROGMEM = {
+static constexpr char* GUI_MODE_OPTIONS[] PROGMEM = {
 
 	"No GUI on start",
 	"Minimal GUI (Gateway + Credentials)",
-	"Standard GUI (Minimal + Devices + Channels)",
+	"Standard GUI (Minimal + Devices + Channels + Actions)",
 	"Extended GUI (Standard + Clusters&Attributes)",
-	"Full GUI"
+	"Full GUI",
+	"Developer GUI (Gateway + C&A + AD +TCC)",
+	"Supla GUI (Gateway + Credentials + Channels + Actions)"
 };
 
 static constexpr zigbee_cluster_t zigbee_clusters[] PROGMEM = {
@@ -273,27 +278,27 @@ static constexpr zigbee_datatype_t zigbee_datatypes[] PROGMEM =
 static constexpr Tuya_datapoint_type_t Tuya_datapoint_types[] PROGMEM = 
 	
 	{{ .Tuya_datapoint_type_name = "RAW", 		
-		 .Tuya_datapoint_type_id = 0x00, 
+		 .Tuya_datapoint_type_id = TUYA_DP_TYPE_RAW, 
 		 .Tuya_datapoint_type_length = 0x00 },
 	
 	 { .Tuya_datapoint_type_name = "BOOL", 	
-	 	 .Tuya_datapoint_type_id = 0x01, 
+	 	 .Tuya_datapoint_type_id = TUYA_DP_TYPE_BOOL, 
 		 .Tuya_datapoint_type_length = 0x01 },
 
 	 { .Tuya_datapoint_type_name = "VALUE", 	
-	 	 .Tuya_datapoint_type_id = 0x02, 
+	 	 .Tuya_datapoint_type_id = TUYA_DP_TYPE_VALUE, 
 		 .Tuya_datapoint_type_length = 0x04 },
 
 	 { .Tuya_datapoint_type_name = "STRING", 
-	 	 .Tuya_datapoint_type_id = 0x03, 
+	 	 .Tuya_datapoint_type_id = TUYA_DP_TYPE_STRING, 
 		 .Tuya_datapoint_type_length = 0x00 },
 
 	 { .Tuya_datapoint_type_name = "ENUM", 	
-	 	 .Tuya_datapoint_type_id = 0x04, 
+	 	 .Tuya_datapoint_type_id = TUYA_DP_TYPE_ENUM, 
 		 .Tuya_datapoint_type_length = 0x01 },
 
 	 { .Tuya_datapoint_type_name = "BITMAP", 
-	 	 .Tuya_datapoint_type_id = 0x05, 
+	 	 .Tuya_datapoint_type_id = TUYA_DP_TYPE_BITMAP, 
 		 .Tuya_datapoint_type_length = 0x01 }
 	};
 
@@ -739,73 +744,73 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "TEMPERATURE"
+		.zigbee_attribute_name = "TEMPERATURE [°C/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_MIN_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "MIN VALUE"
+		.zigbee_attribute_name = "MIN VALUE [°C/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_MAX_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "MAX VALUE"
+		.zigbee_attribute_name = "MAX VALUE [°C/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_PRESSURE_MEASUREMENT_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_PRESSURE_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "PRESSURE"
+		.zigbee_attribute_name = "PRESSURE [kPa/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_PRESSURE_MEASUREMENT_MIN_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_PRESSURE_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "MIN VALUE"
+		.zigbee_attribute_name = "MIN VALUE [kPa/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_PRESSURE_MEASUREMENT_MAX_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_PRESSURE_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "MAX VALUE"
+		.zigbee_attribute_name = "MAX VALUE [kPa/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_FLOW_MEASUREMENT_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_FLOW_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "FLOW"
+		.zigbee_attribute_name = "FLOW [m³/h/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_FLOW_MEASUREMENT_MIN_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_FLOW_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "MIN VALUE"
+		.zigbee_attribute_name = "MIN VALUE [m³/h/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_FLOW_MEASUREMENT_MAX_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_FLOW_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "MAX VALUE"
+		.zigbee_attribute_name = "MAX VALUE [m³/h/x10]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "HUMIDITY"
+		.zigbee_attribute_name = "HUMIDITY [%/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_MIN_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "MIN VALUE"
+		.zigbee_attribute_name = "MIN VALUE [%/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_MAX_VALUE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "MAX VALUE"
+		.zigbee_attribute_name = "MAX VALUE [%/x100]"
 	},
   {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_OCCUPANCY_SENSING_OCCUPANCY_ID, 
@@ -830,7 +835,7 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 		.zigbee_attribute_id  = 0x0020, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_OCCUPANCY_SENSING, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "SNZB-03P MOTION TIMEOUT (5-60)"
+		.zigbee_attribute_name = "SNZB-03P MOTION TIMEOUT [5-60s]"
 	},
   //IAS ZONE
   {
@@ -899,7 +904,7 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_METERING, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U48,
-		.zigbee_attribute_name = "CURRENT SUMMATION"
+		.zigbee_attribute_name = "CURRENT SUMMATION [kWh]"
 	},
 	{
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_METERING_UNIT_OF_MEASURE_ID, 
@@ -936,36 +941,36 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_AC_FREQUENCY_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "AC FREQUENCY"
+		.zigbee_attribute_name = "AC FREQUENCY [Hz]"
 	},
 	{
 		.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSVOLTAGE_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "RMS VOLTAGE"
+		.zigbee_attribute_name = "RMS VOLTAGE [V]"
 	},
 	{	.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_RMSCURRENT_ID, 
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "RMS CURRENT"
+		.zigbee_attribute_name = "RMS CURRENT [A]"
 	},
 	{
 	.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_ACTIVE_POWER_ID, 
 	.zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-	.zigbee_attribute_name = "ACTIVE POWER"
+	.zigbee_attribute_name = "ACTIVE POWER [W]"
 	},
 	{
 	.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_REACTIVE_POWER_ID, 
 	.zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-	.zigbee_attribute_name = "REACTIVE POWER"
+	.zigbee_attribute_name = "REACTIVE POWER [W]"
 	},
 	{
 	.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_APPARENT_POWER_ID, 
 	.zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_ELECTRICAL_MEASUREMENT, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-	.zigbee_attribute_name = "APPARENT POWER"
+	.zigbee_attribute_name = "APPARENT POWER [W]"
 	},
 	{
 	.zigbee_attribute_id  = ESP_ZB_ZCL_ATTR_ELECTRICAL_MEASUREMENT_POWER_FACTOR_ID, 
@@ -1038,7 +1043,7 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_FROST_PROTECTION_TEMPERATURE_ID, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-	.zigbee_attribute_name = "FROST PROTECTION (TRVZB)"
+	.zigbee_attribute_name = "FROST PROTECTION [4°C...35°C/0.5°C/x100] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_IDLE_STEPS_ID, 
@@ -1056,31 +1061,31 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_VALVE_OPENING_LIMIT_VOLTAGE, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-	.zigbee_attribute_name = "VALVE OPENING LIMIT VOLTAGE (TRVZB)"
+	.zigbee_attribute_name = "VALVE OPENING LIMIT VOLTAGE [mV] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_VALVE_CLOSING_LIMIT_VOLTAGE, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-	.zigbee_attribute_name = "VALVE CLOSING LIMIT VOLTAGE (TRVZB)"
+	.zigbee_attribute_name = "VALVE CLOSING LIMIT VOLTAGE [mV] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_VALVE_MOTOR_RUNNING_VOLTAGE, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-	.zigbee_attribute_name = "VALVE MOTOR RUNNING VOLTAGE (TRVZB)"
+	.zigbee_attribute_name = "VALVE MOTOR RUNNING VOLTAGE [mV] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_VALVE_OPENING_DEGREE, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
-	.zigbee_attribute_name = "VALVE OPENING DEGREE (TRVZB)"
+	.zigbee_attribute_name = "VALVE OPENING DEGREE [0-100%] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_VALVE_CLOSING_DEGREE, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
-	.zigbee_attribute_name = "VALVE CLOSING DEGREE (TRVZB)"
+	.zigbee_attribute_name = "VALVE CLOSING DEGREE [0-100%] (TRVZB)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_EXTERNAL_TEMPERATURE_INPUT, 
@@ -1093,6 +1098,12 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
 	.zigbee_attribute_name = "TEMPERATURE SENSOR SELECT (TRVZB)"
+	},
+	{
+	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_TEMPERATURE_ACCURACY, 
+	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
+	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
+	.zigbee_attribute_name = "TEMPERATURE ACCURACY [-1°C...-0.2°C/0.2°C/x100] (TRVZB 1.3.0)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_CURRENT_ID, 
@@ -1116,19 +1127,19 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_TODAY_ID, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
-	.zigbee_attribute_name = "ENERGY (TODAY)"
+	.zigbee_attribute_name = "ENERGY [kWh] (TODAY)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_MONTH_ID, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
-	.zigbee_attribute_name = "ENERGY (MONTH)"
+	.zigbee_attribute_name = "ENERGY [kWh] (MONTH)"
 	},
 	{
 	.zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_AC_ENERGY_YESTERDAY_ID, 
 	.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 	.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U32,
-	.zigbee_attribute_name = "ENERGY (YESTERDAY)"	
+	.zigbee_attribute_name = "ENERGY [kWh] (YESTERDAY)"	
 	},
 
 	{ .zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_OUTLET_CONTROL_PROTECT_ID, 
@@ -1139,17 +1150,24 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	{ .zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_TEMPERATURE_UNITS_ID, 
 		.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U16,
-		.zigbee_attribute_name = "TEMPERATURE UNIT"	},
+		.zigbee_attribute_name = "TEMPERATURE UNIT °C/°F"	},
 
 	{ .zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_TEMPERATURE_CALIBRATION_ID, 
 		.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "TEMPERATURE CALIBRATION (-50..50 0.1)" },
+		.zigbee_attribute_name = "TEMPERATURE CALIBRATION [-50°C..50°C/0.1°C/x100]" },
 
 	{ .zigbee_attribute_id  = SONOFF_CUSTOM_CLUSTER_HUMIDITY_CALIBRATION_ID, 
 		.zigbee_attribute_cluster_id = SONOFF_CUSTOM_CLUSTER, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_S16,
-		.zigbee_attribute_name = "HUMIDITY CALIBRATION (-50..50 0.1)" },
+		.zigbee_attribute_name = "HUMIDITY CALIBRATION [-50°C..50°C/0.1°C/x100]" },
+
+	{ .zigbee_attribute_id  = LUMI_CUSTOM_SWITCH_OPERATION_MODE_ID, 
+		.zigbee_attribute_cluster_id = LUMI_CUSTOM_CLUSTER, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
+		.zigbee_attribute_name = "SWITCH MODE" },
+
+		
 };
 	 
 
@@ -1323,18 +1341,83 @@ static constexpr zigbee_attribute_value_t zigbee_attribute_values [] PROGMEM = {
 		.zigbee_cluster_id = SONOFF_CUSTOM_CLUSTER,
 		.zigbee_attribute_value_name = "FAHRENHEIT",
 		.zigbee_attribute_value = 0x01
+	},
+	{
+		.zigbee_attribute_id = LUMI_CUSTOM_SWITCH_OPERATION_MODE_ID,
+		.zigbee_cluster_id = LUMI_CUSTOM_CLUSTER,
+		.zigbee_attribute_value_name = "CONTROL RELAY",
+		.zigbee_attribute_value = 0x01
+	},
+	{
+		.zigbee_attribute_id = LUMI_CUSTOM_SWITCH_OPERATION_MODE_ID,
+		.zigbee_cluster_id = LUMI_CUSTOM_CLUSTER,
+		.zigbee_attribute_value_name = "DECOUPLED",
+		.zigbee_attribute_value = 0x00
 	}
 };
 
 static const Tuya_datapoint_desc_t Tuya_datapoints[] PROGMEM = {
 
-  { .Tuya_datapoint_desc_id = 1,
-    .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PIR_ILLUMINANCE_SENSOR,
-    .Tuya_datapoint_id 		 			= 0x09,
-    .Tuya_datapoint_type 				= 0x04,
-    .Tuya_datapoint_length 			= 0x01,
+  { .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PIR_ILLUMINANCE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_SENSITIVITY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
     .Tuya_datapoint_name 	 			= "Sensitivity",
-    .Tuya_datapoint_description = "0 (low), 1 (medium), 2 (high)" }
+    .Tuya_datapoint_description = "0 (low), 1 (medium), 2 (high)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PIR_ILLUMINANCE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_KEEP_TIME_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
+    .Tuya_datapoint_name 	 			= "Keep time",
+    .Tuya_datapoint_description = "0 (10s), 1 (30s), 2 (60 s), 3 (120 s)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PIR_ILLUMINANCE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_ILLUMINANCE_INTERVAL_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Illuminance interval",
+    .Tuya_datapoint_description = "Brightness acquisition interval (1-720 min/1 min)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_ILLUZONE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_SENSITIVITY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
+    .Tuya_datapoint_name 	 			= "Sensitivity",
+    .Tuya_datapoint_description = "0 (low), 1 (medium), 2 (high)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_ILLUZONE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_KEEP_TIME_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
+    .Tuya_datapoint_name 	 			= "Keep time",
+    .Tuya_datapoint_description = "0 (10s), 1 (30s), 2 (60 s), 3 (120 s)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_ILLUZONE_SENSOR,
+    .Tuya_datapoint_id 		 			= TUYA_PIR_ILLUMINANCE_SENSOR_ILLUMINANCE_INTERVAL_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Illuminance interval",
+    .Tuya_datapoint_description = "Brightness acquisition interval (1-720 min/1 min)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_MOES_ALARM,
+    .Tuya_datapoint_id 		 			= MOES_ALARM_DURATION_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Alarm duration",
+    .Tuya_datapoint_description = "Alarm duration 1- 1800 s/1s" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_MOES_ALARM,
+    .Tuya_datapoint_id 		 			= MOES_ALARM_MELODY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
+    .Tuya_datapoint_name 	 			= "Alarm melody",
+    .Tuya_datapoint_description = "Input numeric value between 0 - 17" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_MOES_ALARM,
+    .Tuya_datapoint_id 		 			= MOES_ALARM_VOLUME_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_ENUM,
+    .Tuya_datapoint_name 	 			= "Alarm volume",
+    .Tuya_datapoint_description = "0 (low), 1 (medium), 2 (high)" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_MOES_ALARM,
+    .Tuya_datapoint_id 		 			= MOES_ALARM_SWITCH_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_BOOL,
+    .Tuya_datapoint_name 	 			= "Alarm on/ff",
+    .Tuya_datapoint_description = "0 (off), 1 (on)" }
+
 };
 
 #endif //WEB_GUI_TEMPLATES_H_
