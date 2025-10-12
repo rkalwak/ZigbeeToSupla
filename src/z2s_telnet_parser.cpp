@@ -1,6 +1,5 @@
 #include "z2s_telnet_parser.h"
 
-
 extern ZigbeeGateway zbGateway;
 
 

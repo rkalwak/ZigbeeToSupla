@@ -3,6 +3,7 @@
 
 #include <ZigbeeGateway.h>
 #include "z2s_devices_database.h"
+#include "priv_auth_data.h"
 
 #ifdef USE_TELNET_CONSOLE
 

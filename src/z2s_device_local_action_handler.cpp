@@ -1,5 +1,7 @@
 #include "z2s_device_local_action_handler.h"
 
+/*---------------------------------------------------------------------------------------------------------------------------*/
+
 const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot){
 
   switch (z2s_channels_table[channel_number_slot].local_channel_type) {
@@ -13,14 +15,12 @@ const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot){
       
       return "Local virtual relay";
     break;
-
-    default: 
-      return "";
-    break;
   }
 
-  return "";
+  return "Unknown";
 }
+
+/*---------------------------------------------------------------------------------------------------------------------------*/
 
 const char* getZ2SDeviceLocalActionHandlerLogicOperatorName(int16_t channel_number_slot) {
 
@@ -38,9 +38,10 @@ const char* getZ2SDeviceLocalActionHandlerLogicOperatorName(int16_t channel_numb
     break;
   }
 
-  return "";
+  return "Unknown";
 }
 
+/*---------------------------------------------------------------------------------------------------------------------------*/
 
 void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
 
@@ -98,6 +99,9 @@ bool addZ2SDeviceLocalActionHandler(uint8_t local_channel_type,
 
     case LOCAL_CHANNEL_TYPE_ACTION_HANDLER: {
 
+      SuplaDevice.saveStateToStorage();
+      Supla::Storage::ConfigInstance()->commit();
+
       z2s_channels_table[first_free_slot].Supla_channel = 
         Z2S_findFirstFreeLocalActionHandlerId();
 
@@ -113,7 +117,8 @@ bool addZ2SDeviceLocalActionHandler(uint8_t local_channel_type,
     case LOCAL_CHANNEL_TYPE_VIRTUAL_RELAY: {
 
       SuplaDevice.saveStateToStorage();
-      
+      Supla::Storage::ConfigInstance()->commit();
+
       auto Supla_VirtualRelay = new Supla::Control::VirtualRelay(); 
 
       z2s_channels_table[first_free_slot].Supla_channel = Supla_VirtualRelay->getChannelNumber();
@@ -138,6 +143,3 @@ bool addZ2SDeviceLocalActionHandler(uint8_t local_channel_type,
   
   return Z2S_saveChannelsTable();
 }
-
-
-

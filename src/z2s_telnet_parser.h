@@ -10,8 +10,6 @@
 #include <supla/channels/channel.h>
 #include <supla/actions.h>
 #include <supla/events.h>
-#include <z2s_telnet_server.h>
-
 
 void Z2S_onTelnetCmd(char *cmd, 
                      uint8_t params_number, 

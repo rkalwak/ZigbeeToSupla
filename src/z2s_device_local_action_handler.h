@@ -4,6 +4,8 @@
 #include "z2s_devices_table.h"
 
 #include <SuplaDevice.h>
+#include <supla/storage/eeprom.h>
+#include <supla/storage/littlefs_config.h>
 #include <supla/control/virtual_relay.h>
 #include <Z2S_control/Z2S_local_action_handlers.h>
 
@@ -16,7 +18,11 @@ static constexpr char *ACTION_HANDLERS_DEFAULT_NAMES[] PROGMEM = {
   "AND GATE",
   "OR GATE",
   "NOT GATE",
-  "XOR GATE"
+  "XOR GATE",
+  "NAND GATE",
+  "NOR GATE",
+  "AND GATE (3 INPUTS)",
+  "OR GATE (3 INPUTS)"
 };
 
 const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot);

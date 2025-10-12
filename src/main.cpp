@@ -40,7 +40,7 @@
 #endif //USE_TELNET_CONSOLE
 
 #define GATEWAY_ENDPOINT_NUMBER 1
-#define ENABLE_SSL true
+
 #define BUTTON_PIN                  9  //Boot button for C6/H2
 #define CFG_BUTTON_PIN              9  //Boot button for C6/H2
 #define WIFI_ENABLE                 3
@@ -318,7 +318,6 @@ Supla::Device::StatusLed statusLed(RGB_BUILTIN, true);
 
 void setup() {
   
-  
   //esp_log_set_vprintf(&spiffs_log_vprintf);
 
   log_i("setup start");
@@ -331,7 +330,7 @@ void setup() {
   pinMode(WIFI_ENABLE, OUTPUT); // pinMode(3, OUTPUT); (credits @Zibi_007)in
   pinMode(WIFI_ANT_CONFIG, OUTPUT); // pinMode(14, OUTPUT);
   digitalWrite(WIFI_ANT_CONFIG, HIGH);
- 
+
   eeprom.setStateSavePeriod(5000);
 
   new Supla::Clock;
@@ -405,6 +404,11 @@ void setup() {
   LittleFS.end();
 
   Z2S_loadZbDevicesTable();
+
+    esp_zb_ieee_addr_t esp_zb_ieee_addr = {};
+
+  esp_zb_ieee_addr[0] = 0xCC;
+  //Z2S_addZbDeviceTableSlot(esp_zb_ieee_addr, 0, "_TZE200_wzk0x7fq","TS0601", 1, Z2S_DEVICE_DESC_TUYA_VIBRATION_SENSOR, 0);
 
   Z2S_loadChannelsTable();
 
@@ -914,7 +918,7 @@ if (GUIstarted)
                 zbGateway.sendCustomClusterCmd(joined_device, 
                                                TUYA_PRIVATE_CLUSTER_EF00, 
                                                TUYA_QUERY_CMD, 
-                                               ESP_ZB_ZCL_ATTR_TYPE_SET, 
+                                               ESP_ZB_ZCL_ATTR_TYPE_NULL, 
                                                0, 
                                                nullptr);
 
@@ -1064,6 +1068,21 @@ if (GUIstarted)
                                                1, 
                                                &write_mask); //Tuya special
                 }; break;
+                
+
+                case Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB20:
+                case Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB21: {
+
+                  zbGateway.sendAddGroupRequestCmd(joined_device, 0x4E20, true);
+                  zbGateway.sendAddGroupRequestCmd(joined_device, 0x4E20, false);
+                } break;
+
+                /*case Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3: {
+
+                  zbGateway.sendAddGroupRequestCmd(joined_device, 0, true);
+                  zbGateway.sendAddGroupRequestCmd(joined_device, 0, false);
+                } break;*/
+                 
                 
     
                 case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F:

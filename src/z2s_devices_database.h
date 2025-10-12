@@ -88,6 +88,7 @@
 #define Z2S_DEVICE_DESC_LUMI_AIR_QUALITY_SENSOR             0x2260
 
 #define Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR                0x2300
+#define Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_1              0x2301
 #define Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_5              0x2305
 #define Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_4IN1           0x2310
 #define Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_RELAY          0x2315
@@ -138,6 +139,8 @@
 
 #define Z2S_DEVICE_DESC_TUYA_RELAY                          0x4020
 
+#define Z2S_DEVICE_DESC_TUYA_LCD_3_RELAYS                   0x4030
+
 #define Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER             0x4100
 #define Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER_1           0x4101
 #define Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER_2           0x4102
@@ -163,6 +166,8 @@
 #define Z2S_DEVICE_DESC_TUYA_3GANG_SWITCH                   0x4606
 #define Z2S_DEVICE_DESC_TUYA_4GANG_SWITCH                   0x4607
 
+#define Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES      0x4650
+
 #define Z2S_DEVICE_DESC_ON_OFF_VALVE_DC                     0x4700
 #define Z2S_DEVICE_DESC_TUYA_ON_OFF_VALVE_DC                0x4705
 #define Z2S_DEVICE_DESC_TUYA_ON_OFF_VALVE_BATTERY           0x4710
@@ -170,6 +175,7 @@
 #define Z2S_DEVICE_DESC_WINDOW_COVERING_SINGLE              0x4800
 #define Z2S_DEVICE_DESC_TUYA_WINDOW_COVERING_SINGLE         0x4810
 #define Z2S_DEVICE_DESC_MOES_SHADES_DRIVE_MOTOR             0x4820
+#define Z2S_DEVICE_DESC_ZEMISMART_SHADES_DRIVE_MOTOR        0x4821
 #define Z2S_DEVICE_DESC_LORATAP_WINDOW_COVERING_SINGLE      0x4830
 
 #define Z2S_DEVICE_DESC_SONOFF_SMART_VALVE                  0x4900
@@ -179,13 +185,15 @@
 #define Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_3F                0x5001
 #define Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_2F                0x5002
 
-#define Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB20          0x5020
-#define Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB21          0x5021
+#define Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB20          0x5020
+#define Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB21          0x5021
 
 #define Z2S_DEVICE_DESC_TUYA_SWITCH_4X3                     0x5100
 
 #define Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3                0x5105
 #define Z2S_DEVICE_DESC_TUYA_SOS_BUTTON                     0x5110
+
+#define Z2S_DEVICE_DESC_SMART_BUTTON_2F                     0x5150
 
 #define Z2S_DEVICE_DESC_IKEA_SMART_BUTTON                   0x5200
 #define Z2S_DEVICE_DESC_IKEA_SMART_BUTTON_2F                0x5201
@@ -234,6 +242,7 @@
 #define Z2S_DEVICE_DESC_TS0601_TRV_TV02                     0x6018
 #define Z2S_DEVICE_DESC_TS0601_TRV_SITERWELL                0x6019
 
+#define Z2S_DEVICE_DESC_TS0601_ZWT_ZWT198                   0x6200
 
 #define Z2S_DEVICE_DESC_HVAC_END                            0x6499
 
@@ -241,13 +250,15 @@
 #define Z2S_DEVICE_DESC_TUYA_SIREN_ALARM                    0x6600
 #define Z2S_DEVICE_DESC_MOES_ALARM                          0x6610
 
+#define Z2S_DEVICE_DESC_TUYA_FINGERBOT_PLUS                 0x6700
+
 #define Z2S_DEVICE_DESC_TUYA_REPEATER                       0x7000
 
 #define Z2S_DEVICE_DESC_ON_OFF                              0x8000
 #define Z2S_DEVICE_DESC_ON_OFF_1                            0x8001
 
 
-#define MAX_BOUND_ENDPOINTS                                 0x04
+#define MAX_BOUND_ENDPOINTS                                 0x06
 #define MAX_BOUND_CLUSTERS                                  0x08
 
 
@@ -349,6 +360,9 @@
 #define TUYA_3PHASES_ELECTRICITY_METER_POWER_FACTOR_SID     0x03
 #define TUYA_3PHASES_ELECTRICITY_METER_SID                  0x04
 
+#define CUSTOM_CMD_BUTTON_PRESSED_SID                       0x00
+#define CUSTOM_CMD_BUTTON_DOUBLE_PRESSED_SID                0x01
+
 #define IKEA_CUSTOM_CMD_BUTTON_1_PRESSED_SID                0x00
 #define IKEA_CUSTOM_CMD_BUTTON_1_HELD_SID                   0x01
 #define IKEA_CUSTOM_CMD_BUTTON_2_PRESSED_SID                0x02
@@ -392,6 +406,17 @@
 #define PHILIPS_HUE_DIMMER_SWITCH_OFF_HOLD_SID              0x0D
 #define PHILIPS_HUE_DIMMER_SWITCH_OFF_PRESS_RELEASE_SID     0x0E
 #define PHILIPS_HUE_DIMMER_SWITCH_OFF_HOLD_RELEASE_SID      0x0F
+
+//#define LIVARNO_DIMMER_SWITCH_REMOTE_TURN_ON_SID            0x00
+#define LIVARNO_DIMMER_SWITCH_ON_PRESSED_SID                0x00
+#define LIVARNO_DIMMER_SWITCH_OFF_PRESSED_SID               0x01
+#define LIVARNO_DIMMER_SWITCH_DIM_UP_PRESSED_SID            0x02
+#define LIVARNO_DIMMER_SWITCH_DIM_UP_HOLD_SID               0x03
+#define LIVARNO_DIMMER_SWITCH_DIM_UP_LONG_PRESSED_SID       0x04
+#define LIVARNO_DIMMER_SWITCH_DIM_DOWN_PRESSED_SID          0x05
+#define LIVARNO_DIMMER_SWITCH_DIM_DOWN_HOLD_SID             0x06
+#define LIVARNO_DIMMER_SWITCH_DIM_DOWN_LONG_PRESSED_SID     0x07
+
 
 #define LUMI_DOUBLE_SWITCH_LEFT_PRESSED_SID                 0x00
 #define LUMI_DOUBLE_SWITCH_LEFT_DOUBLE_PRESSED_SID          0x01
@@ -455,30 +480,75 @@
 #define TUYA_SOS_BUTTON_EMERGENCY_SID                       0x01
 #define TUYA_SOS_BUTTON_LOW_BATTERY_SID                     0x03 //IAS_ZONE_LOW_BATTERY_SID
 
+#define TUYA_LCD_PANEL_3_RELAYS_RELAY_1_SID                 0x00
+#define TUYA_LCD_PANEL_3_RELAYS_RELAY_2_SID                 0x01
+#define TUYA_LCD_PANEL_3_RELAYS_RELAY_3_SID                 0x02
+
+#define TUYA_LCD_PANEL_3_RELAYS_TURN_ON_SID                 0x03
+#define TUYA_LCD_PANEL_3_RELAYS_TURN_OFF_SID                0x04
+#define TUYA_LCD_PANEL_3_RELAYS_TV_MODE_SID                 0x05
+#define TUYA_LCD_PANEL_3_RELAYS_MEETING_MODE_SID            0x06
+#define TUYA_LCD_PANEL_3_RELAYS_SLEEP_MODE_SID              0x07
+#define TUYA_LCD_PANEL_3_RELAYS_COFFE_BREAK_MODE_SID        0x08
+
+
+#define TUYA_LCD_PANEL_3_RELAYS_SHUTTER_CLOSE_SID           0x09
+#define TUYA_LCD_PANEL_3_RELAYS_SHUTTER_STOP_SID            0x0A
+#define TUYA_LCD_PANEL_3_RELAYS_SHUTTER_OPEN_SID            0x0B
+
+#define TUYA_LCD_PANEL_3_RELAYS_CURTAIN_MOVE_UP_SID         0x0C
+#define TUYA_LCD_PANEL_3_RELAYS_CURTAIN_STOP_SID            0x0D
+#define TUYA_LCD_PANEL_3_RELAYS_CURTAIN_MOVE_DOWN_SID       0x0E
+#define TUYA_LCD_PANEL_3_RELAYS_AC_ON_SID                   0x0F
+#define TUYA_LCD_PANEL_3_RELAYS_AC_OFF_SID                  0x10
+#define TUYA_LCD_PANEL_3_RELAYS_COOL_ON_SID                 0x11
+#define TUYA_LCD_PANEL_3_RELAYS_HEAT_ON_SID                 0x12
+
+
 
 [[maybe_unused]]
-static const char IKEA_STYRBAR_BUTTONS[][16] PROGMEM = {"ON PRESSED", "ON HELD", "OFF PRESSED", 
-                                                        "OFF HELD", "LEFT PRESSED", "LEFT HELD", 
-                                                        "RIGHT PRESSED", "RIGHT HELD"};
+static const char *IKEA_STYRBAR_BUTTONS[] PROGMEM = { "ON PRESSED", 
+                                                      "ON HELD", 
+                                                      "OFF PRESSED", 
+                                                      "OFF HELD", 
+                                                      "LEFT PRESSED", 
+                                                      "LEFT HELD", 
+                                                      "RIGHT PRESSED", 
+                                                      "RIGHT HELD" };
 
 [[maybe_unused]]
-static const char IKEA_SYMFONISK_BUTTONS[][20] PROGMEM = {"PLAY", "VOLUME UP", "VOLUME DOWN", 
-                                                          "NEXT TRACK ", "PREV TRACK",
-                                                          "DOT PRESSED", "DOT SHORT RELEASE", 
-                                                          "DOT HELD", "DOT LONG RELEASED", 
-                                                          "DOT DOUBLE PRESSED",
-                                                          "DOTS PRESSED", "DOTS SHORT RELEASE", 
-                                                          "DOTS HELD", "DOTS LONG RELEASED", 
-                                                          "DOTS DOUBLE PRESSED"};
+static const char *IKEA_SYMFONISK_BUTTONS[] PROGMEM = { "PLAY", 
+                                                        "VOLUME UP", 
+                                                        "VOLUME DOWN", 
+                                                        "NEXT TRACK ", 
+                                                        "PREV TRACK",
+                                                        "DOT PRESSED", 
+                                                        "DOT SHORT RELEASE", 
+                                                        "DOT HELD", 
+                                                        "DOT LONG RELEASED", 
+                                                        "DOT DOUBLE PRESSED",
+                                                        "DOTS PRESSED", 
+                                                        "DOTS SHORT RELEASE", 
+                                                        "DOTS HELD", 
+                                                        "DOTS LONG RELEASED", 
+                                                        "DOTS DOUBLE PRESSED" };
 [[maybe_unused]]
-static const char PHILIPS_HUE_DIMMER_SWITCH_BUTTONS[][19] PROGMEM = {"ON_PRESS", "ON_PRESS_RELEASE", 
-                                                                     "ON_HOLD", "ON_HOLD_RELEASE",
-                                                                     "UP_PRESS", "UP_PRESS_RELEASE", 
-                                                                     "UP_HOLD", "UP_HOLD_RELEASE",
-                                                                     "DOWN_PRESS", "DOWN_PRESS_RELEASE", 
-                                                                     "DOWN_HOLD", "DOWN_HOLD_RELEASE",
-                                                                     "OFF_PRESS", "OFF_PRESS_RELEASE", 
-                                                                     "OFF_HOLD","OFF_HOLD_RELEASE"};
+static const char *PHILIPS_HUE_DIMMER_SWITCH_BUTTONS[] PROGMEM = {  "ON_PRESS", 
+                                                                     "ON_PRESS_RELEASE", 
+                                                                    "ON_HOLD", 
+                                                                    "ON_HOLD_RELEASE",
+                                                                    "UP_PRESS", 
+                                                                    "UP_PRESS_RELEASE", 
+                                                                    "UP_HOLD", 
+                                                                    "UP_HOLD_RELEASE",
+                                                                    "DOWN_PRESS", 
+                                                                    "DOWN_PRESS_RELEASE", 
+                                                                    "DOWN_HOLD", 
+                                                                    "DOWN_HOLD_RELEASE",
+                                                                    "OFF_PRESS", 
+                                                                    "OFF_PRESS_RELEASE", 
+                                                                    "OFF_HOLD",
+                                                                    "OFF_HOLD_RELEASE" };
 
 typedef struct z2s_device_desc_s {
   uint32_t z2s_device_desc_id;
@@ -722,6 +792,16 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
     .z2s_device_clusters_count = 1,
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF }},
+
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_LCD_3_RELAYS,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { TUYA_PRIVATE_CLUSTER_EF00 }},
+
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { TUYA_PRIVATE_CLUSTER_EF00 }},
 
   {	.z2s_device_desc_id = Z2S_DEVICE_DESC_RELAY_ELECTRICITY_METER,
     .z2s_device_clusters_count = 3,
@@ -967,6 +1047,11 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
 
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TS0601_ZWT_ZWT198,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
+
   {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_2F,
     .z2s_device_clusters_count = 1,
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
@@ -997,14 +1082,19 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF }},
 
-  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB20,
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_SMART_BUTTON_2F ,
     .z2s_device_clusters_count = 1,
-    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_RESERVED_5, //0, //Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_config_flags = 0,
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF }},
+
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB20,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = 0, //Z2S_DEVICE_DESC_CONFIG_FLAG_RESERVED_5, //0, //Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
 
-  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB21,
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB21,
     .z2s_device_clusters_count = 2,
-    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_RESERVED_5, //Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_config_flags = 0, //Z2S_DEVICE_DESC_CONFIG_FLAG_RESERVED_5, //Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
                              ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL }},
 
@@ -1210,6 +1300,12 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE,
                              TUYA_PRIVATE_CLUSTER_EF00 }},
 
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_1,
+    .z2s_device_clusters_count = 2,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_IAS_ZONE,
+                             TUYA_PRIVATE_CLUSTER_EF00 }},
+
   {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_5,
     .z2s_device_clusters_count = 2,
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
@@ -1280,6 +1376,11 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
     .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
 
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_ZEMISMART_SHADES_DRIVE_MOTOR,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
+
   {	.z2s_device_desc_id = Z2S_DEVICE_DESC_MOES_ALARM,
     .z2s_device_clusters_count = 1,
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
@@ -1288,7 +1389,12 @@ static const z2s_device_desc_t Z2S_DEVICES_DESC[] PROGMEM [[maybe_unused]] = {
   {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_VIBRATION_SENSOR,
     .z2s_device_clusters_count = 1,
     .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
-    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }}
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_BASIC }},
+
+  {	.z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_FINGERBOT_PLUS,
+    .z2s_device_clusters_count = 1,
+    .z2s_device_config_flags = Z2S_DEVICE_DESC_CONFIG_FLAG_TUYA_INIT,
+    .z2s_device_clusters = { ESP_ZB_ZCL_CLUSTER_ID_ON_OFF }}
 };
 
 static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
@@ -1483,6 +1589,11 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 	. z2s_device_desc_id = Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR,
 	  .z2s_device_endpoints_count = 1},
 
+  {	.manufacturer_name = "lumi", .model_name = "lumi.sens",
+    .z2s_device_uid = 3205,
+	. z2s_device_desc_id = Z2S_DEVICE_DESC_TEMPHUMIDITY_SENSOR,
+	  .z2s_device_endpoints_count = 1},
+
   {	.manufacturer_name = "_TZ3000_hzkeh3nv", .model_name = "TS0201",
     .z2s_device_uid = 3300,
 	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_SENSOR,
@@ -1519,6 +1630,11 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 	  .z2s_device_endpoints_count = 1},
 
   {	.manufacturer_name = "_TZ3000", .model_name = "SNZB-03",
+   .z2s_device_uid = 3810,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_IAS_ZONE_SENSOR,
+	  .z2s_device_endpoints_count = 1},
+
+  {	.manufacturer_name = "_TZ3000_996rpfy6", .model_name = "TS0203",
    .z2s_device_uid = 3810,
 	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_IAS_ZONE_SENSOR,
 	  .z2s_device_endpoints_count = 1},
@@ -2284,12 +2400,12 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 
   {	.manufacturer_name = "_TYZB01_bngwdjsr", .model_name = "TS1001",
     .z2s_device_uid = 15050,
-	  .z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB20,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB20,
 	  .z2s_device_endpoints_count = 1},
 
   {	.manufacturer_name = "_TYZB01_hww2py6b", .model_name = "TS1001",
     .z2s_device_uid = 15055,
-	  .z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_SWITCH_DIMMER_FB21,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB21,
 	  .z2s_device_endpoints_count = 1},
   
   {	.manufacturer_name = "HOBEIAN", .model_name = "ZG-101ZL",
@@ -2863,6 +2979,14 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
                               { 2, Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1},
                               { 3, Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1 }}},
 
+  {	.manufacturer_name = "_TZ3000_hbic3ka3", .model_name = "TS0003",
+    .z2s_device_uid = 22205,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_3GANG_SWITCH,
+	  .z2s_device_endpoints_count = 3,
+    .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1},
+                              { 2, Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1},
+                              { 3, Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1 }}},
+
   {	.manufacturer_name = "_TZ3000_mw1pqqqt", .model_name = "TS0003",
     .z2s_device_uid = 22300,
 	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_3GANG_SWITCH,
@@ -2951,6 +3075,11 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR,
 	  .z2s_device_endpoints_count = 1},
 
+  {	.manufacturer_name = "_TZE284_debczeci", .model_name = "TS0601",
+    .z2s_device_uid = 23750,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_1,
+	  .z2s_device_endpoints_count = 1},
+
   {	.manufacturer_name = "_TZE204_ex3rcdha", .model_name = "TS0601",
     .z2s_device_uid = 23800,
 	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_5,
@@ -2988,8 +3117,10 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 
   {	.manufacturer_name = "TELINK", .model_name = "TLSR82xx",
     .z2s_device_uid = 24305,
-	  .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3,
-	  .z2s_device_endpoints_count = 1},
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_SMART_BUTTON_2F,
+	  .z2s_device_endpoints_count = 2,
+    .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_SMART_BUTTON_2F },
+                              { 2, Z2S_DEVICE_DESC_SMART_BUTTON_2F }}},
 
   //{	.manufacturer_name = "_TZE200_nojsjtj2", .model_name = "TS0601",
   // .z2s_device_uid = 24400,
@@ -3089,7 +3220,7 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
 
   {	.manufacturer_name = "_TZE200_68nvbio9", .model_name = "TS0601",
     .z2s_device_uid = 26000,
-	  .z2s_device_desc_id = Z2S_DEVICE_DESC_MOES_SHADES_DRIVE_MOTOR,
+	  .z2s_device_desc_id = Z2S_DEVICE_DESC_ZEMISMART_SHADES_DRIVE_MOTOR,
 	  .z2s_device_endpoints_count = 1},
 
   {	.manufacturer_name = "_TZE204_t1blo2bj", .model_name = "TS0601",
@@ -3152,8 +3283,45 @@ static const z2s_device_entity_t Z2S_DEVICES_LIST[] PROGMEM = {
   { .manufacturer_name = "_TZ3000_utwgoauk", .model_name = "TS0201",
     .z2s_device_uid = 27001,
     .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_TEMPHUMIDITY_SENSOR,
-    .z2s_device_endpoints_count = 1}
+    .z2s_device_endpoints_count = 1},
+
+  { .manufacturer_name = "_TZE200_mua6ucdj", .model_name = "TS0601",
+    .z2s_device_uid = 28000,
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_LCD_3_RELAYS,
+    .z2s_device_endpoints_count = 1},
+
+  /*{ .manufacturer_name = "_TZE200_oahqgdig", .model_name = "TS0601",
+    .z2s_device_uid = 28100,
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES,
+    .z2s_device_endpoints_count = 6,
+    .z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 2, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 3, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 4, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 5, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 6, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES }}},*/
+
+  { .manufacturer_name = "_TZE200_oahqgdig", .model_name = "TS0601",
+    .z2s_device_uid = 28100,
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES,
+    .z2s_device_endpoints_count = 1},
+    /*.z2s_device_endpoints = { { 1, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 2, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 3, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 4, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 5, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES },
+                              { 6, Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES }}},*/
+
+  { .manufacturer_name = "_TZ3210_j4pdtz9v", .model_name = "TS0001",
+    .z2s_device_uid = 29000,
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TUYA_FINGERBOT_PLUS,
+    .z2s_device_endpoints_count = 1},
+
+  { .manufacturer_name = "_TZE284_aaeaifez", .model_name = "TS0601",
+    .z2s_device_uid = 29100,
+    .z2s_device_desc_id = Z2S_DEVICE_DESC_TS0601_ZWT_ZWT198,
+    .z2s_device_endpoints_count = 1},
+
+
 };
-
-
 #endif
