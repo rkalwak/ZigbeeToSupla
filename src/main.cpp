@@ -680,7 +680,7 @@ if (GUIstarted)
 
         //}
       }
-      if (refresh_cycle % 3 == 0) {
+      if (refresh_cycle % 30 == 0) {
         //log_i("getZbgDeviceUnitLastSeenMs %d, current millis %d", zbGateway.getZbgDeviceUnitLastSeenMs(device->short_addr), millis());
         log_i( "Memory information: Flash chip real size:%u B, Free Sketch Space:%u B, "
 						"Free Heap:%u, Minimal Free Heap:%u B, "

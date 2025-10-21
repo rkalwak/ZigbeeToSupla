@@ -11,6 +11,7 @@
 #include <Z2S_control/Z2S_virtual_relay.h>
 #include <Z2S_control/Z2S_virtual_relay_scene_switch.h>
 #include <Z2S_control/dimmer_input_interface.h>
+#include <Z2S_control/Z2S_remote_relay.h>
 
 #include "z2s_devices_table.h"
 #include "z2s_device_iaszone.h"
@@ -38,6 +39,8 @@ z2s_zb_device_params_t z2s_zb_devices_table[Z2S_ZB_DEVICES_MAX_NUMBER] = {};
 
 uint8_t z2s_actions_index_table[Z2S_ACTIONS_MAX_NUMBER / 8] = {};
 
+char GatewayMDNSLocalName[12] = "Z2S_gateway";
+
 static uint32_t Styrbar_timer = 0;
 static bool     Styrbar_ignore_button_1 = false;
 
@@ -52,8 +55,16 @@ void no_channel_found_error_func(char *ieee_addr_str) {
 
 void ieee_addr_to_str(char *ieee_addr_str, esp_zb_ieee_addr_t ieee_addr) {
 
-  sprintf_P(ieee_addr_str, PSTR("%x:%x:%x:%x:%x:%x:%x:%x"), ieee_addr[7], ieee_addr[6], ieee_addr[5], ieee_addr[4], 
-          ieee_addr[3], ieee_addr[2], ieee_addr[1], ieee_addr[0]);
+  sprintf_P(ieee_addr_str, 
+            PSTR("%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X"), 
+            ieee_addr[7], 
+            ieee_addr[6], 
+            ieee_addr[5], 
+            ieee_addr[4], 
+            ieee_addr[3], 
+            ieee_addr[2], 
+            ieee_addr[1], 
+            ieee_addr[0]);
 }
 
 void devices_table_full_error_func() {
@@ -142,19 +153,29 @@ int16_t Z2S_findChannelNumberSlot(esp_zb_ieee_addr_t ieee_addr,
 
   ieee_addr_to_str(ieee_addr_str, ieee_addr);
 
-  log_i("%s, endpoint 0x%x, channel type 0x%x", ieee_addr_str, endpoint, channel_type);
+  log_i("%s, endpoint 0x%x, channel type 0x%x", 
+        ieee_addr_str, 
+        endpoint, 
+        channel_type);
   
   for (uint8_t channels_counter = 0; channels_counter < Z2S_CHANNELS_MAX_NUMBER; channels_counter++) {
 
-      if (z2s_channels_table[channels_counter].valid_record)
-        if ((memcmp(z2s_channels_table[channels_counter].ieee_addr, ieee_addr, sizeof(esp_zb_ieee_addr_t)) == 0) && 
-            ((endpoint < 0) || (z2s_channels_table[channels_counter].endpoint == endpoint)) &&
-            ((channel_type < 0) || (z2s_channels_table[channels_counter].Supla_channel_type == channel_type)) &&
-            ((sub_id < 0) || (z2s_channels_table[channels_counter].sub_id == sub_id))) { 
-            //&& (z2s_channels_table[channels_counter].cluster_id == cluster)) {
-            return channels_counter;
-        }
+    if (z2s_channels_table[channels_counter].valid_record) {
 
+      if ((memcmp(z2s_channels_table[channels_counter].ieee_addr, 
+                  ieee_addr, 
+                  sizeof(esp_zb_ieee_addr_t)) == 0) && 
+          ((endpoint < 0) || 
+            (z2s_channels_table[channels_counter].endpoint == endpoint)) &&
+          ((channel_type < 0) || 
+            (z2s_channels_table[channels_counter].Supla_channel_type == channel_type)) &&
+          ((sub_id < 0) || 
+            (z2s_channels_table[channels_counter].sub_id == sub_id))) { 
+          
+        return 
+          channels_counter;
+      }
+    }
   }  
   return -1;
 }
@@ -215,11 +236,11 @@ void Z2S_fillChannelsTableSlot(zbg_device_params_t *device,
                                uint8_t channel, 
                                int32_t channel_type, 
                                int8_t sub_id,
-                              char *name, 
-                              uint32_t func, 
-                              uint8_t secondary_channel,
-                              uint8_t extended_data_type,
-                              uint8_t *extended_data) {
+                               const char *name, 
+                               uint32_t func, 
+                               uint8_t secondary_channel,
+                               uint8_t extended_data_type,
+                               uint8_t *extended_data) {
 
   
   memset(&z2s_channels_table[slot], 0, sizeof(z2s_device_params_t));
@@ -629,7 +650,9 @@ void Z2S_initZbDevices(uint32_t init_ms) {
         z2s_zb_devices_table[devices_counter].last_seen_ms = init_ms;
 }
 
-bool Z2S_updateZbDeviceUidIdx(uint8_t zb_device_slot, const char *manufacturer_name, const char * model_name) {
+bool Z2S_updateZbDeviceUidIdx(uint8_t zb_device_slot, 
+                              const char *manufacturer_name, 
+                              const char * model_name) {
 
   if (zb_device_slot >= Z2S_ZB_DEVICES_MAX_NUMBER)
     return false;
@@ -676,8 +699,8 @@ bool Z2S_updateZbDeviceUidIdx(uint8_t zb_device_slot, const char *manufacturer_n
 
 uint8_t Z2S_addZbDeviceTableSlot(esp_zb_ieee_addr_t  ieee_addr, 
                                  uint16_t short_addr, 
-                                 char *manufacturer_name, 
-                                 char *model_name, 
+                                 const char *manufacturer_name, 
+                                 const char *model_name, 
                                  uint8_t endpoints_count, 
                                  uint32_t desc_id, 
                                  uint8_t power_source) {
@@ -1074,18 +1097,26 @@ bool Z2S_loadZbDevicesTable() {
 
 bool Z2S_saveZbDevicesTable() {
 
-  //if (!Supla::Storage::ConfigInstance()->setBlob(Z2S_ZB_DEVICES_TABLE, (char *)z2s_zb_devices_table, sizeof(z2s_zb_devices_table))) {
-  if (!Z2S_saveFile(Z2S_ZB_DEVICES_TABLE_ID_V2, (uint8_t *)z2s_zb_devices_table, sizeof(z2s_zb_devices_table))) {
+  if (!Z2S_saveFile(Z2S_ZB_DEVICES_TABLE_ID_V2, 
+                    (uint8_t *)z2s_zb_devices_table, 
+                    sizeof(z2s_zb_devices_table))) {
+
     log_i ("Zigbee devices table write failed!");
     return false;
   }
   else { 
-    if (Supla::Storage::ConfigInstance()->setUInt32(Z2S_ZB_DEVICES_TABLE_SIZE, sizeof(z2s_zb_devices_table))) {
-      log_i("Zigbee devices table new size(%d) write success!", sizeof(z2s_zb_devices_table));
+    
+    if (Supla::Storage::ConfigInstance()->
+          setUInt32(Z2S_ZB_DEVICES_TABLE_SIZE, sizeof(z2s_zb_devices_table))) {
+
+      log_i("Zigbee devices table new size(%d) write success!", 
+            sizeof(z2s_zb_devices_table));
+
       Supla::Storage::ConfigInstance()->commit();
       return true;
     }
     else { 
+      
       log_i ("Zigbee devices table size write failed!");
       return false;
     }
@@ -1095,16 +1126,24 @@ bool Z2S_saveZbDevicesTable() {
 bool Z2S_clearZbDevicesTable() {
 
   log_i("Clear Zigbee devices table");
-  memset(z2s_zb_devices_table,0,sizeof(z2s_zb_devices_table));
+  
+  memset(z2s_zb_devices_table, 0, sizeof(z2s_zb_devices_table));
+
   return Z2S_saveZbDevicesTable();
 }
 
 bool Z2S_setZbDeviceFlags(int8_t device_number_slot, uint32_t flags_to_set) {
 
-  if ((device_number_slot >= 0) && (device_number_slot < Z2S_ZB_DEVICES_MAX_NUMBER) && z2s_zb_devices_table[device_number_slot].record_id > 0) {
-    z2s_zb_devices_table[device_number_slot].user_data_flags |= flags_to_set;;
+  if ((device_number_slot >= 0) && 
+      (device_number_slot < Z2S_ZB_DEVICES_MAX_NUMBER) && 
+      (z2s_zb_devices_table[device_number_slot].record_id > 0)) {
+
+    z2s_zb_devices_table[device_number_slot].user_data_flags |= flags_to_set;
+
     if (Z2S_saveZbDevicesTable()) {
-    log_i("Device global flags set successfully to %x", z2s_zb_devices_table[device_number_slot].user_data_flags);
+    
+    log_i("Device global flags set successfully to %x", 
+          z2s_zb_devices_table[device_number_slot].user_data_flags);
       return true;
     }
     return false;
@@ -1394,8 +1433,9 @@ bool Z2S_loadActionsIndexTable() {
 
 bool Z2S_saveActionsIndexTable() {
 
-  //if (Supla::Storage::ConfigInstance()->setBlob(Z2S_CHANNELS_ACTIONS_INDEX_TABLE, (char *)z2s_actions_index_table, sizeof(z2s_actions_index_table))) {
-  if (Z2S_saveFile(Z2S_CHANNELS_ACTIONS_INDEX_TABLE_V2, (uint8_t *)z2s_actions_index_table, sizeof(z2s_actions_index_table))) {
+  if (Z2S_saveFile(Z2S_CHANNELS_ACTIONS_INDEX_TABLE_V2, 
+      (uint8_t *)z2s_actions_index_table, 
+      sizeof(z2s_actions_index_table))) {
 
     log_i ("Saving Zigbee<=>Supla actions index table: SUCCESS!");
     return true;
@@ -1473,16 +1513,21 @@ bool Z2S_saveAction(uint16_t action_index, z2s_channel_action_t &action) {
   char file_name_buffer[50] = {};
   sprintf(file_name_buffer, Z2S_CHANNELS_ACTIONS_PPREFIX_V2, action_index);
   
-  //if (Supla::Storage::ConfigInstance()->setBlob(blob_name_buffer, (char *)&action, sizeof(z2s_channel_action_t))) {
-  if (Z2S_saveFile(file_name_buffer, (uint8_t*) &action, sizeof(z2s_channel_action_t))) {
+  if (Z2S_saveFile(file_name_buffer, 
+                   (uint8_t*) &action, 
+                   sizeof(z2s_channel_action_t))) {
 
-    log_i ("Saving Zigbee<=>Supla action in file %s: SUCCESS", file_name_buffer);
+    log_i ("Saving Zigbee<=>Supla action in file %s: SUCCESS", 
+           file_name_buffer);
+
     setActionsIndexTablePosition(action_index);
     Z2S_saveActionsIndexTable();
     return true;
   } else {
 
-    log_i ("Saving Zigbee<=>Supla action in file %s: FAILED", file_name_buffer);
+    log_i ("Saving Zigbee<=>Supla action in file %s: FAILED", 
+           file_name_buffer);
+
     return false;
   }
 }
@@ -2115,9 +2160,9 @@ uint8_t getZigbeeTypeSize(uint8_t zigbee_type) {
     case ESP_ZB_ZCL_ATTR_TYPE_DOUBLE: 
       return 8;
     
-    default: 
-      return 0;
+
   }
+  return 0;
 }
 
 struct f7_payload_scan_result_s {
@@ -2654,52 +2699,117 @@ void Z2S_onSonoffCustomClusterReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t end
   }
 }
 
-void Z2S_onOnOffReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, bool state) {
+void Z2S_onOnOffReceive(
+  esp_zb_ieee_addr_t ieee_addr, 
+  uint16_t endpoint, 
+  uint16_t cluster, 
+  bool state) {
 
   char ieee_addr_str[24] = {};
 
   ieee_addr_to_str(ieee_addr_str, ieee_addr);
 
-  log_i("%s, endpoint 0x%x, state 0x%x", ieee_addr_str, endpoint, state);
+  log_i("%s, endpoint 0x%x, state 0x%x", 
+        ieee_addr_str, 
+        endpoint, 
+        state);
 
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_RELAY, NO_CUSTOM_CMD_SID);
+  int16_t channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_RELAY, 
+      NO_CUSTOM_CMD_SID);
   
   if (channel_number_slot >= 0) {
-    msgZ2SDeviceVirtualRelay(channel_number_slot, state); //default On/Off channel
+
+    msgZ2SDeviceVirtualRelay(
+      channel_number_slot, 
+      state); //default On/Off channel
     return;
   }
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_BINARYSENSOR, NO_CUSTOM_CMD_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      NO_CUSTOM_CMD_SID);
+
   if (channel_number_slot >= 0) {
-    msgZ2SDeviceIASzone(channel_number_slot, state); //AQARA magnet
+    
+    if (z2s_channels_table[channel_number_slot].model_id == 
+        Z2S_DEVICE_DESC_LUMI_MAGNET_SENSOR)
+
+      msgZ2SDeviceIASzone(
+        channel_number_slot, 
+        !state); //AQARA magnet
+    else
+
+      msgZ2SDeviceIASzone(
+        channel_number_slot, 
+        state); //anything?
     return;
   }
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_DIMMER, NO_CUSTOM_CMD_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_DIMMER, 
+      NO_CUSTOM_CMD_SID);
+
   if (channel_number_slot >= 0) {
-    msgZ2SDeviceDimmer(channel_number_slot, -1, state);
+    msgZ2SDeviceDimmer(
+      channel_number_slot, 
+      -1, 
+      state);
     return;
   }
   
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_RGBLEDCONTROLLER, NO_CUSTOM_CMD_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_RGBLEDCONTROLLER, 
+      NO_CUSTOM_CMD_SID);
+
   if (channel_number_slot >= 0) {
-    msgZ2SDeviceRGB(z2s_channels_table[channel_number_slot].model_id, z2s_channels_table[channel_number_slot].Supla_channel, 0xFF, 0xFF, state);
+    msgZ2SDeviceRGB(
+      z2s_channels_table[channel_number_slot].model_id, 
+      z2s_channels_table[channel_number_slot].Supla_channel, 
+      0xFF, 
+      0xFF, 
+      state);
     return;
   }
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_VALVE_OPENCLOSE, NO_CUSTOM_CMD_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_VALVE_OPENCLOSE, 
+      NO_CUSTOM_CMD_SID);
+
   if (channel_number_slot >= 0) {
-    msgZ2SDeviceVirtualValve(z2s_channels_table[channel_number_slot].Supla_channel, state);
+    msgZ2SDeviceVirtualValve(
+      z2s_channels_table[channel_number_slot].Supla_channel, 
+      state);
     return;
   } 
   
-  //channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_DIMMERANDRGBLED, NO_CUSTOM_CMD_SID);
-  //if (channel_number_slot >= 0) {
-    //msgZ2SDeviceRGBW(z2s_channels_table[channel_number_slot].model_id, z2s_channels_table[channel_number_slot].Supla_channel, 0xFF, 0xFF, 0xFFFF, state);
-    //return;
- // }
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_ACTIONTRIGGER, 
+      NO_CUSTOM_CMD_SID);
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, endpoint, cluster, SUPLA_CHANNELTYPE_ACTIONTRIGGER, NO_CUSTOM_CMD_SID);
   if (channel_number_slot >= 0) {
     if (state)
       msgZ2SDeviceActionTrigger(channel_number_slot);
@@ -3072,108 +3182,156 @@ void Z2S_onBatteryReceive(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint1
 
     case ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID:
 
-      updateSuplaBatteryLevel(channel_number_slot, ZBD_BATTERY_PERCENTAGE_MSG, battery_remaining, false); break;
+      updateSuplaBatteryLevel(
+        channel_number_slot, 
+        ZBD_BATTERY_PERCENTAGE_MSG, 
+        battery_remaining, 
+        false); 
+    break;
 
 
     case ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_VOLTAGE_ID:
 
-      updateSuplaBatteryLevel(channel_number_slot, ZBD_BATTERY_VOLTAGE_MSG, battery_remaining, false); break;
+      updateSuplaBatteryLevel(
+        channel_number_slot, 
+        ZBD_BATTERY_VOLTAGE_MSG, 
+        battery_remaining, 
+        false); 
+    break;
   }
 }
 
-void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr, uint16_t endpoint, uint16_t cluster, int iaszone_status) {
+void Z2S_onIASzoneStatusChangeNotification(
+    esp_zb_ieee_addr_t ieee_addr, 
+    uint16_t endpoint, 
+    uint16_t cluster, 
+    int iaszone_status) {
   
   char ieee_addr_str[24] = {};
+  bool skip_generic_check = false;
 
   ieee_addr_to_str(ieee_addr_str, ieee_addr);
 
-  log_i("%s, endpoint 0x%x, cluster 0x%x, zone status 0x%x", ieee_addr_str, endpoint, cluster, iaszone_status);
+  log_i("%s, endpoint 0x%x, cluster 0x%x, zone status 0x%x", 
+        ieee_addr_str, endpoint, cluster, iaszone_status);
 
-  int16_t channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                          endpoint, 
-                                                          cluster, 
-                                                          SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                          TUYA_VIBRATION_SENSOR_CONTACT_SID);
+  int16_t channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      TUYA_VIBRATION_SENSOR_CONTACT_SID);
   
   if (channel_number_slot >= 0) {
 
     log_i("IASZONE - TUYA_VIBRATION_SENSOR_CONTACT_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+          channel_number_slot, 
+          iaszone_status);
 
     msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 1));
     return;
   }
   
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                  endpoint, 
-                                                  cluster, 
-                                                  SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                  IAS_ZONE_ALARM_1_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      IAS_ZONE_ALARM_1_SID);
 
   if (channel_number_slot >= 0) {
 
     log_i("IASZONE - IAS_ZONE_ALARM_1_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+          channel_number_slot, 
+          iaszone_status);
     
     if (iaszone_status < 0x0400)
       msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 1));
     else
       msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 0x0400));
+
+    skip_generic_check = true;
   }
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                  endpoint, 
-                                                  cluster, 
-                                                  SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                  IAS_ZONE_ALARM_2_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      IAS_ZONE_ALARM_2_SID);
 
   if (channel_number_slot >= 0) {
 
-    log_i("IASZONE - IAS_ZONE_ALARM_2_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+    log_i("IASZONE - IAS_ZONE_ALARM_2_SID: "
+          "channel:%x, status: %x", 
+          channel_number_slot, 
+          iaszone_status);
 
     msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 2));
+
+    skip_generic_check = true;
   }
 
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                  endpoint, 
-                                                  cluster, 
-                                                  SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                  IAS_ZONE_TAMPER_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      IAS_ZONE_TAMPER_SID);
 
   if (channel_number_slot >= 0) {
 
-    log_i("IASZONE - IAS_ZONE_TAMPER_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+    log_i("IASZONE - IAS_ZONE_TAMPER_SID "
+          "channel:%x, status: %x", 
+          channel_number_slot, 
+          iaszone_status);
 
     msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 4));
+
+    skip_generic_check = true;
   }
   
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                  endpoint, 
-                                                  cluster, 
-                                                  SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                  IAS_ZONE_LOW_BATTERY_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      IAS_ZONE_LOW_BATTERY_SID);
 
   if (channel_number_slot >= 0) {
 
-    log_i("IASZONE - IAS_ZONE_LOW_BATTERY_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+    log_i("IASZONE - IAS_ZONE_LOW_BATTERY_SID "
+          "channel:%x, status: %x", 
+          channel_number_slot, 
+          iaszone_status);
 
     msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 8));
-    return;
+
+    skip_generic_check = true;
   }
+
+  if (skip_generic_check)
+    return;
   
-  channel_number_slot = Z2S_findChannelNumberSlot(ieee_addr, 
-                                                  endpoint, 
-                                                  cluster, 
-                                                  SUPLA_CHANNELTYPE_BINARYSENSOR, 
-                                                  NO_CUSTOM_CMD_SID);
+  channel_number_slot = 
+    Z2S_findChannelNumberSlot(
+      ieee_addr, 
+      endpoint, 
+      cluster, 
+      SUPLA_CHANNELTYPE_BINARYSENSOR, 
+      NO_CUSTOM_CMD_SID);
 
   if (channel_number_slot >= 0) {
 
-    log_i("IASZONE - NO_CUSTOM_CMD_SID channel:%x, status: %x", 
-          channel_number_slot, iaszone_status);
+    log_i("IASZONE - NO_CUSTOM_CMD_SID "
+          "channel:%x, status: %x", 
+          channel_number_slot, 
+          iaszone_status);
     
     msgZ2SDeviceIASzone(channel_number_slot, (iaszone_status & 1));
     return;
@@ -3182,7 +3340,9 @@ void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr, uint16_
   no_channel_found_error_func(ieee_addr_str);
 }
 
-bool compareBuffer(uint8_t *buffer, uint8_t buffer_size, char *lookup_str) {
+bool compareBuffer(uint8_t *buffer, 
+                   uint8_t buffer_size, 
+                   char *lookup_str) {
   
   char byte_str[3];
   byte_str[2] = '\0';
@@ -3777,7 +3937,11 @@ void Z2S_onDeviceRejoin(uint16_t short_addr, esp_zb_ieee_addr_t ieee_addr) {
   }
 }
 
-uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name, uint32_t func, char *unit) { //
+uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, 
+                         int8_t sub_id, 
+                         const char *name, 
+                         uint32_t func, 
+                         const char *unit) { 
 
   char ieee_addr_str[24] = {};
 
@@ -3790,11 +3954,13 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
                                                           sub_id);
   
   if (channel_number_slot < 0) {
+
     log_i("No channel found for address %s, adding new one!",ieee_addr_str);
     
     uint8_t first_free_slot = Z2S_findFirstFreeChannelsTableSlot();
     
     if (first_free_slot == 0xFF) {
+        
         devices_table_full_error_func();
         return ADD_Z2S_DEVICE_STATUS_DT_FULL;
     }
@@ -3869,11 +4035,12 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
       case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR_1_2_T:
       case Z2S_DEVICE_DESC_IAS_ZONE_SENSOR_1_SONOFF_T_B:
 
-        addZ2SDeviceIASzone(device, 
-                            first_free_slot, 
-                            sub_id, 
-                            name, 
-                            func); 
+        addZ2SDeviceIASzone(
+          device, 
+          first_free_slot, 
+          sub_id, 
+          name, 
+          func); 
       break;
 
 /*---------------------------------------------------------------------------------------------------------------------------*/     
@@ -3926,6 +4093,55 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
 
 /*---------------------------------------------------------------------------------------------------------------------------*/     
 
+
+      case Z2S_DEVICE_DESC_TUYA_8_RELAYS_CONTROLLER: {
+
+
+        switch (sub_id) {
+
+
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_1_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_2_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_3_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_4_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_5_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_6_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_7_SID:
+          case TUYA_8_RELAYS_CONTROLLER_RELAY_8_SID:
+          //case TUYA_8_RELAYS_CONTROLLER_LOCK_SID:
+
+            addZ2SDeviceVirtualRelay(&zbGateway,
+                                     device, 
+                                     first_free_slot, 
+                                     sub_id, 
+                                     name, 
+                                     SUPLA_CHANNELFNC_POWERSWITCH);
+          break;
+
+
+          /*case TUYA_8_RELAYS_CONTROLLER_STATUS_SID:
+
+            addZ2SDeviceGeneralPurposeMeasurement(device, 
+                                                  first_free_slot, 
+                                                  sub_id, name, 
+                                                  func, 
+                                                  unit); */
+          break;            
+
+
+          default:
+
+            addZ2SDeviceActionTrigger(device, 
+                                      first_free_slot, 
+                                      sub_id, 
+                                      name, 
+                                      SUPLA_CHANNELFNC_POWERSWITCH);
+          break;
+        }
+      } break;
+
+/*---------------------------------------------------------------------------------------------------------------------------*/     
+
       case Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES:
 
         addZ2SDeviceVirtualRelay(&zbGateway,
@@ -3939,7 +4155,8 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
 /*---------------------------------------------------------------------------------------------------------------------------*/     
 
       case Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_1:
-      case Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_2: {
+      case Z2S_DEVICE_DESC_TUYA_GANG_SWITCH_2:
+      case Z2S_DEVICE_DESC_TUYA_5_RELAYS_CONTROLLER: {
 
         char gang_name[30];
         sprintf(gang_name, "GANG #%d", device->endpoint);
@@ -3971,9 +4188,15 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
       case Z2S_DEVICE_DESC_TUYA_SWITCH_4X3: {
 
         char button_name_function[30];
-        static constexpr char *button_function[] = {"PRESSED", "DOUBLE PRESSED","HELD"};
+
+        static constexpr char *button_function[] = {  "PRESSED", 
+                                                      "DOUBLE PRESSED",
+                                                      "HELD"  };
         
-        sprintf(button_name_function, "BUTTON #%d %s", device->endpoint, button_function[sub_id]); 
+        sprintf(button_name_function, 
+                "BUTTON #%d %s", 
+                device->endpoint, 
+                button_function[sub_id]); 
 
         addZ2SDeviceActionTrigger(device, 
                                   first_free_slot, 
@@ -3987,9 +4210,19 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
       case Z2S_DEVICE_DESC_SMART_BUTTON_2F: {
 
         char button_name_function[30];
-        static constexpr char *button_function[] = {"PRESSED"}; //, "DOUBLE PRESSED"};
-        sprintf(button_name_function, "BUTTON #%d %s", device->endpoint, button_function[sub_id]); 
-        addZ2SDeviceActionTrigger(device, first_free_slot, sub_id, name, SUPLA_CHANNELFNC_POWERSWITCH);
+        
+        static constexpr char *button_function[] = {"PRESSED"};
+        
+        sprintf(button_name_function, 
+                "BUTTON #%d %s", 
+                device->endpoint, 
+                button_function[sub_id]); 
+
+        addZ2SDeviceActionTrigger(device, 
+                                  first_free_slot, 
+                                  sub_id, 
+                                  name, 
+                                  SUPLA_CHANNELFNC_POWERSWITCH);
       } break;
 
 /*---------------------------------------------------------------------------------------------------------------------------*/     
@@ -3998,11 +4231,12 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
 
       case Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB20: 
       case Z2S_DEVICE_DESC_LIVARNO_DIMMER_SWITCH_FB21: {
-
-        //char button_name_function[30];
-        //static const char button_function[][15] = {"PRESSED", "DOUBLE PRESSED","HELD"};
-        //sprintf(button_name_function, "BUTTON #%d %s", device->endpoint, button_function[sub_id]); 
-        addZ2SDeviceActionTrigger(device, first_free_slot, sub_id, name, SUPLA_CHANNELFNC_POWERSWITCH);
+ 
+        addZ2SDeviceActionTrigger(device, 
+                                  first_free_slot, 
+                                  sub_id, 
+                                  name, 
+                                  SUPLA_CHANNELFNC_POWERSWITCH);
       } break;
 
 
@@ -4010,9 +4244,16 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
 
       case Z2S_DEVICE_DESC_TUYA_EF00_SWITCH_2X3: {
 
-        static const char button_name_function[][30] =  {"BUTTON #1 PRESSED", "BUTTON #1 DOUBLE PRESSED","BUTTON #1 HELD",
-                                            "BUTTON #2 PRESSED", "BUTTON #2 DOUBLE PRESSED","BUTTON #2 HELD"};
-        addZ2SDeviceActionTrigger(device, first_free_slot, sub_id, 
+        static const char *button_name_function[] =  {  "BUTTON #1 PRESSED", 
+                                                        "BUTTON #1 DOUBLE PRESSED",
+                                                        "BUTTON #1 HELD",
+                                                        "BUTTON #2 PRESSED", 
+                                                        "BUTTON #2 DOUBLE PRESSED",
+                                                        "BUTTON #2 HELD"};
+
+        addZ2SDeviceActionTrigger(device, 
+                                  first_free_slot, 
+                                  sub_id, 
                                   (char *)button_name_function[sub_id], 
                                   SUPLA_CHANNELFNC_POWERSWITCH);
       } break;
@@ -4216,7 +4457,9 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
       case Z2S_DEVICE_DESC_TS0601_TRV_TRV602Z:
       case Z2S_DEVICE_DESC_TS0601_TRV_TV02:
       case Z2S_DEVICE_DESC_TS0601_TRV_SITERWELL:
+      case Z2S_DEVICE_DESC_TS0601_TRV_TRV16:
       case Z2S_DEVICE_DESC_TS0601_ZWT_ZWT198:
+      case Z2S_DEVICE_DESC_TS0601_MOES_BHT002:
       case Z2S_DEVICE_DESC_SONOFF_TRVZB: {
       
         addZ2SDeviceTempHumidity(device, first_free_slot, NO_CUSTOM_CMD_SID, "HVAC TEMP", 0, false);
@@ -4868,9 +5111,16 @@ uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device, int8_t sub_id, char *name,
 
       case Z2S_DEVICE_DESC_MOES_SHADES_DRIVE_MOTOR:
       case Z2S_DEVICE_DESC_ZEMISMART_SHADES_DRIVE_MOTOR:
+      case Z2S_DEVICE_DESC_MOES_COVER:
 
-        addZ2SDeviceVirtualRelay(&zbGateway, device, first_free_slot, NO_CUSTOM_CMD_SID, 
-                                "ROLLER SHUTTER", SUPLA_CHANNELFNC_CONTROLLINGTHEROLLERSHUTTER); break;
+        addZ2SDeviceVirtualRelay(
+          &zbGateway, 
+          device, 
+          first_free_slot, 
+          NO_CUSTOM_CMD_SID, 
+          "ROLLER SHUTTER", 
+          SUPLA_CHANNELFNC_CONTROLLINGTHEROLLERSHUTTER); 
+      break;
 
         
       case Z2S_DEVICE_DESC_TUYA_SIREN_ALARM:
@@ -5185,7 +5435,8 @@ void updateTimeout(uint8_t channel_number_slot, uint8_t timeout, uint8_t selecto
 
 void updateRGBMode(uint8_t channel_number_slot, uint8_t rgb_mode) {
 
-  if (z2s_channels_table[channel_number_slot].Supla_channel_type == SUPLA_CHANNELTYPE_RGBLEDCONTROLLER) {
+  if (z2s_channels_table[channel_number_slot].
+    Supla_channel_type == SUPLA_CHANNELTYPE_RGBLEDCONTROLLER) {
 
     z2s_channels_table[channel_number_slot].rgb_color_mode = rgb_mode;
 
@@ -5193,17 +5444,163 @@ void updateRGBMode(uint8_t channel_number_slot, uint8_t rgb_mode) {
       log_i("Device(channel %d) RGB mode updated. Table saved successfully.", 
             z2s_channels_table[channel_number_slot].Supla_channel);
       
-      auto element = Supla::Element::getElementByChannelNumber(z2s_channels_table[channel_number_slot].Supla_channel);
+      auto element = 
+      Supla::Element::getElementByChannelNumber(
+        z2s_channels_table[channel_number_slot].Supla_channel);
 
-      if (element != nullptr && element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_RGBLEDCONTROLLER) {
+      if (element && 
+          (element->getChannel()->getChannelType() == SUPLA_CHANNELTYPE_RGBLEDCONTROLLER)) {
 
-        auto Supla_Z2S_RGBInterface = reinterpret_cast<Supla::Control::Z2S_RGBInterface *>(element);
+        auto Supla_Z2S_RGBInterface = 
+          reinterpret_cast<Supla::Control::Z2S_RGBInterface *>(element);
+        
         Supla_Z2S_RGBInterface->setRGBMode(rgb_mode);
       }
     }
   }
   else
     log_i("RGB mode update only allowed for SUPLA_CHANNELTYPE_RGBLEDCONTROLLER");
+}
+
+void sendChannelAction(uint8_t Supla_channel, uint16_t channel_action) {
+
+
+  auto element = Z2S_getSuplaElementByChannelNumber(Supla_channel);
+
+  if (element && (Supla_channel < 0x080)) {
+
+    switch (element->getChannel()->getChannelType()) {
+
+
+      case SUPLA_CHANNELTYPE_RELAY: {
+
+        auto Supla_Z2S_Relay = 
+          reinterpret_cast<Supla::Control::Relay *>(element);
+        
+        Supla_Z2S_Relay->handleAction(0, channel_action);
+      } break;
+    }
+  } else
+  log_i("TODO send channel action for logic gates");
+}
+
+void setRemoteRelay(uint8_t Supla_channel, bool state) {
+
+  //log_i("setRemoteRelay channel %u, state %u", Supla_channel, state);
+  
+  auto element = Z2S_getSuplaElementByChannelNumber(Supla_channel);
+
+  if (element && (Supla_channel < 0x080)) {
+
+    //log_i ("channel type %u", element->getChannel()->getChannelType());
+
+    switch (element->getChannel()->getChannelType()) {
+
+
+      case SUPLA_CHANNELTYPE_RELAY: {
+
+        auto Supla_Z2S_Relay = 
+          reinterpret_cast<Supla::Control::Z2S_RemoteRelay *>(element);
+
+        log_i("setting remote relay(%u) to %u", 
+              Supla_channel,
+              state);
+
+        Supla_Z2S_Relay->Z2S_setOnOff(state);
+      } break;
+    }
+  } else
+  log_i("TODO send channel action for logic gates");
+}
+
+Supla::Control::Z2S_RemoteRelay *getRemoteRelayPtr(uint8_t channel_number_slot) {
+
+  auto element = 
+    Supla::Element::getElementByChannelNumber(
+      z2s_channels_table[channel_number_slot].Supla_channel);
+
+  if (element && 
+      (element->getChannel()->getChannelType() == 
+        SUPLA_CHANNELTYPE_RELAY) &&
+      (z2s_channels_table[channel_number_slot].local_channel_type ==
+        LOCAL_CHANNEL_TYPE_REMOTE_RELAY)) {
+
+    return
+      reinterpret_cast<Supla::Control::Z2S_RemoteRelay *>(element);
+  }
+  return nullptr;
+}
+
+void updateRemoteRelayMDNSName(uint8_t channel_number_slot,
+                               char * mDNS_name) {
+
+  auto Supla_Z2S_RemoteRelay = getRemoteRelayPtr(channel_number_slot);
+
+  if (Supla_Z2S_RemoteRelay) {
+
+    Supla_Z2S_RemoteRelay->setRemoteGatewayMDNSName(mDNS_name);
+  }
+}
+
+void updateRemoteRelayIPAddress(uint8_t channel_number_slot,
+                                uint32_t remote_ip_address) {
+
+  auto Supla_Z2S_RemoteRelay = getRemoteRelayPtr(channel_number_slot);
+
+  if (Supla_Z2S_RemoteRelay) {
+
+    Supla_Z2S_RemoteRelay->setRemoteGatewayIPAddress(remote_ip_address);
+  }
+}
+
+void updateRemoteRelaySuplaChannel(uint8_t channel_number_slot,
+                                   uint8_t remote_Supla_channel) {
+
+  auto Supla_Z2S_RemoteRelay = getRemoteRelayPtr(channel_number_slot);
+
+  if (Supla_Z2S_RemoteRelay) {
+
+    Supla_Z2S_RemoteRelay->setRemoteGatewaySuplaChannel(remote_Supla_channel);
+  }
+}
+
+void updateHvacFixedCalibrationTemperature(uint8_t channel_number_slot,
+                                           int32_t hvac_fixed_calibration_temperature) {
+
+  if (z2s_channels_table[channel_number_slot].
+    Supla_channel_type == SUPLA_CHANNELTYPE_HVAC) {
+
+    z2s_channels_table[channel_number_slot].hvac_fixed_temperature_correction = 
+      hvac_fixed_calibration_temperature;
+
+    if (Z2S_saveChannelsTable()) {
+
+      log_i("Device(channel %d) fixed calibration temperature updated. "
+            "Table saved successfully.", 
+            z2s_channels_table[channel_number_slot].Supla_channel);
+      
+      auto element = 
+      Supla::Element::getElementByChannelNumber(
+        z2s_channels_table[channel_number_slot].Supla_channel);
+
+      if (element && 
+          (element->getChannel()->getChannelType() == 
+            SUPLA_CHANNELTYPE_HVAC)) {
+
+        auto Supla_Z2S_HvacBase = 
+          reinterpret_cast<Supla::Control::HvacBaseEE *>(element);
+    
+        auto Supla_Z2S_TRVInterface = 
+          reinterpret_cast<Supla::Control::Z2S_TRVInterface *>(Supla_Z2S_HvacBase->getPrimaryOutputEE());
+
+        Supla_Z2S_TRVInterface->
+          setFixedTemperatureCalibration(hvac_fixed_calibration_temperature);
+      }
+    }
+  }
+  else
+    log_i("Fixed calibration temperature update only "
+          "allowed for SUPLA_CHANNELTYPE_HVAC");
 }
 
 void updateDeviceTemperature(uint8_t channel_number_slot, int32_t temperature) {
@@ -5219,7 +5616,7 @@ void updateDeviceTemperature(uint8_t channel_number_slot, int32_t temperature) {
     log_i("set temperature only allowed for virtual thermometer");
 }
 
-bool Z2S_add_action(char *action_name, 
+bool Z2S_add_action(const char *action_name, 
                     uint8_t src_channel_id, 
                     uint16_t Supla_action, 
                     uint8_t dst_channel_id, 
@@ -5273,8 +5670,11 @@ bool Z2S_add_action(char *action_name,
       case Supla::ON_EQUAL:
         Supla_condition = OnEqual(threshold_1); break;
     }
-    if (Supla_condition == nullptr)
+    if (Supla_condition == nullptr) {
+
+      log_i("unkown Supla condition - adding failed!");
       return false;
+    }
   }
   
   
@@ -5316,7 +5716,8 @@ bool Z2S_add_action(char *action_name,
     case SUPLA_CHANNELTYPE_RELAY: {
       
       log_i("ah->relay action");
-      auto Supla_Z2S_ChannelActionClient = reinterpret_cast<Supla::Control::Relay *>(dst_element);
+      auto Supla_Z2S_ChannelActionClient = 
+        reinterpret_cast<Supla::Control::Relay *>(dst_element);
       
       if (condition && Supla_Z2S_ChannelActionHandler)
         Supla_Z2S_ChannelActionHandler->addAction(Supla_action, 
@@ -5549,17 +5950,22 @@ bool hasTuyaCustomCluster(uint32_t model_id) {
     case Z2S_DEVICE_DESC_TS0601_TRV_TRV602Z:
     case Z2S_DEVICE_DESC_TS0601_TRV_TV02:
     case Z2S_DEVICE_DESC_TS0601_TRV_SITERWELL:
+    case Z2S_DEVICE_DESC_TS0601_TRV_TRV16:
     case Z2S_DEVICE_DESC_TS0601_ZWT_ZWT198:
+    case Z2S_DEVICE_DESC_TS0601_MOES_BHT002:
     case Z2S_DEVICE_DESC_TUYA_ON_OFF_VALVE_BATTERY:
     case Z2S_DEVICE_DESC_TUYA_VIBRATION_SENSOR:
     case Z2S_DEVICE_DESC_MOES_ALARM:
     case Z2S_DEVICE_DESC_MOES_SHADES_DRIVE_MOTOR:
+    case Z2S_DEVICE_DESC_MOES_COVER:
     case Z2S_DEVICE_DESC_ZEMISMART_SHADES_DRIVE_MOTOR:
     case Z2S_DEVICE_DESC_TUYA_AIR_QUALITY_SENSOR:
     case Z2S_DEVICE_DESC_GIEX_SMART_VALVE:
     case Z2S_DEVICE_DESC_TUYA_LCD_3_RELAYS:
     case Z2S_DEVICE_DESC_TUYA_FINGERBOT_PLUS:
     case Z2S_DEVICE_DESC_TUYA_FLOOR_HEATING_BOX_6_ZONES:
+    case Z2S_DEVICE_DESC_TUYA_8_RELAYS_CONTROLLER:
+    case Z2S_DEVICE_DESC_TUYA_5_RELAYS_CONTROLLER:
       return true;
     default:
       return false;
@@ -5965,6 +6371,46 @@ void Z2S_buildSuplaChannels(zbg_device_params_t *joined_device,
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
+    case Z2S_DEVICE_DESC_TUYA_8_RELAYS_CONTROLLER: {
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_1_SID,
+                       "RELAY 1");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_2_SID,
+                       "RELAY 2");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_3_SID,
+                       "RELAY 3");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_4_SID,
+                       "RELAY 4");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_5_SID,
+                       "RELAY 5");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_6_SID,
+                       "RELAY 6");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_7_SID,
+                       "RELAY 7");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_RELAY_8_SID,
+                       "RELAY 8");
+
+      Z2S_addZ2SDevice(joined_device, 
+                       TUYA_8_RELAYS_CONTROLLER_STATUS_SID,
+                       "STATUS ?");
+    } break;
+
+/*---------------------------------------------------------------------------------------------------------------------------*/
 
     case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR: {
       
@@ -6621,4 +7067,18 @@ void Z2S_buildSuplaChannels(zbg_device_params_t *joined_device,
     default: Z2S_addZ2SDevice(joined_device, 
                               NO_CUSTOM_CMD_SID);
   }
+}
+
+void printSizeOfClasses() {
+
+  log_i("\n\rRelay %u - VirtualRelay %u - Z2S_VirtualRelay %u"
+        "\n\rHvacBase %u - HvacBaseEE %u - Z2S_trv_interface %u"
+        "\n\rVirtualSceneSwitch %u",
+        sizeof(Supla::Control::Relay),
+        sizeof(Supla::Control::VirtualRelay),
+        sizeof(Supla::Control::Z2S_VirtualRelay),
+        sizeof(Supla::Control::HvacBase),
+        sizeof(Supla::Control::HvacBaseEE),
+        sizeof(Supla::Control::Z2S_TRVInterface),
+        sizeof(Supla::Control::VirtualRelaySceneSwitch));
 }

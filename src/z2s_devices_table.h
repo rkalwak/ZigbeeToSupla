@@ -16,29 +16,32 @@
 #include <supla/events.h>
 #include <supla/element.h>
 
-#define Z2S_ZB_DEVICES_MAX_NUMBER 32
-#define Z2S_CHANNELS_MAX_NUMBER 128
-#define Z2S_ACTIONS_MAX_NUMBER 256
+#define Z2S_ZB_DEVICES_MAX_NUMBER  0x20  //32
+#define Z2S_CHANNELS_MAX_NUMBER    0x80  //128
+#define Z2S_ACTIONS_MAX_NUMBER     0x100 //256
 
-#define MAX_ZB_DEVICE_SUPLA_CHANNELS 16
+#define MAX_ZB_DEVICE_SUPLA_CHANNELS 0x10 //16
 
-#define ALL_SUPLA_CHANNEL_TYPES -1
+#define ALL_SUPLA_CHANNEL_TYPES   -1
 
-#define ADD_Z2S_DEVICE_STATUS_OK 0x00       //device added 100%
-#define ADD_Z2S_DEVICE_STATUS_DUN 0x01      //device unknown
+#define ADD_Z2S_DEVICE_STATUS_OK      0x00  //device added 100%
+#define ADD_Z2S_DEVICE_STATUS_DUN     0x01  //device unknown
 #define ADD_Z2S_DEVICE_STATUS_DT_FULL 0x02  //device table full = device not added
-#define ADD_Z2S_DEVICE_STATUS_DT_FWA 0x03   //device table full while adding = device added partialy
-#define ADD_Z2S_DEVICE_STATUS_DAP 0x04      //device already present
+#define ADD_Z2S_DEVICE_STATUS_DT_FWA  0x03  //device table full while adding = device added partialy
+#define ADD_Z2S_DEVICE_STATUS_DAP     0x04  //device already present
 
-#define USER_DATA_FLAG_SED_TIMEOUT (1 << 0)   // 0x01
-#define USER_DATA_FLAG_MSG_DISABLED (1 << 1)  // 0x02
+#define USER_DATA_FLAG_SED_TIMEOUT                  (1 << 0)  // 0x0001
+#define USER_DATA_FLAG_MSG_DISABLED                 (1 << 1)  // 0x0002
 
-#define USER_DATA_FLAG_CORRECTIONS_DISABLED (1 << 2)   // 0x04
-#define USER_DATA_FLAG_TRV_AUTO_TO_SCHEDULE (1 << 3)   // 0x08
-#define USER_DATA_FLAG_TRV_IGNORE_NEXT_MSG (1 << 4)    // 0x10
-#define USER_DATA_FLAG_DISABLE_NOTIFICATIONS (1 << 5)  // 0x20
-#define USER_DATA_FLAG_SET_SORWNS_ON_START (1 << 6)    // 0x40
-#define USER_DATA_FLAG_HAS_EXTENDED_DATA (1 << 7)      // 0x80
+#define USER_DATA_FLAG_CORRECTIONS_DISABLED         (1 << 2)  // 0x0004
+#define USER_DATA_FLAG_TRV_AUTO_TO_SCHEDULE         (1 << 3)  // 0x0008
+#define USER_DATA_FLAG_TRV_IGNORE_NEXT_MSG          (1 << 4)  // 0x0010
+#define USER_DATA_FLAG_DISABLE_NOTIFICATIONS        (1 << 5)  // 0x0020
+#define USER_DATA_FLAG_SET_SORWNS_ON_START          (1 << 6)  // 0x0040
+#define USER_DATA_FLAG_HAS_EXTENDED_DATA            (1 << 7)  // 0x0080
+#define USER_DATA_FLAG_TRV_FIXED_CORRECTION         (1 << 8)  // 0x0100
+#define USER_DATA_FLAG_TRV_AUTO_TO_SCHEDULE_MANUAL  (1 << 9)  // 0x0200
+#define USER_DATA_FLAG_TRV_COOPERATIVE_CHILDLOCK    (1 << 10) // 0x0400
 
 #define ZBD_USER_DATA_FLAG_VERSION_2_0 (1 << 0)
 #define ZBD_USER_DATA_FLAG_RESERVED_1 (1 << 1)
@@ -97,65 +100,80 @@ typedef struct z2s_legacy_2_device_params_s {
 
 typedef struct z2s_device_params_s {
 
-  bool valid_record;
-  uint8_t extended_data_type;
-  uint8_t local_channel_type;
-  uint8_t reserved_3;
-  uint32_t model_id;
-  esp_zb_ieee_addr_t ieee_addr;
-  uint8_t endpoint;
-  uint16_t cluster_id;
-  uint16_t short_addr;
-  uint8_t Supla_channel;
-  uint8_t Supla_secondary_channel;
-  int32_t Supla_channel_type;
-  char Supla_channel_name[32];
-  uint32_t Supla_channel_func;
-  int8_t sub_id;
-  uint8_t reserved_4;
-  uint8_t reserved_5;
-  uint8_t reserved_6;
+  bool                valid_record;
+  uint8_t             extended_data_type;
+  uint8_t             local_channel_type;
+  uint8_t             reserved_3;
+  uint32_t            model_id;
+  esp_zb_ieee_addr_t  ieee_addr;
+  uint8_t             endpoint;
+  uint16_t            cluster_id;
+  uint16_t            short_addr;
+  uint8_t             Supla_channel;
+  uint8_t             Supla_secondary_channel;
+  int32_t             Supla_channel_type;
+  char                Supla_channel_name[32];
+  uint32_t            Supla_channel_func;
+  int8_t              sub_id;
+  uint8_t             reserved_4;
+
   union {
     struct {
-      uint32_t user_data_1;  //Tuya Rain Sensor rain_intensity, RGB mode, HVAC - probably unused
-      uint32_t user_data_2;
+      uint8_t         reserved_5;
+      uint8_t         reserved_6;
     };
     struct {
-      uint32_t rain_intensity_treshold;
-      //uint32_t            user_data_2;
-    };
-    struct {
-      uint32_t rgb_color_mode;
-      //uint32_t            user_data_2;
-    };
-    struct {
-      uint32_t value : 24;
-      uint32_t program : 8;
-      uint32_t pause_time : 24;
-      uint32_t cycles : 8;
-    } smart_valve_data;
-    struct {
-      Supla::Element *Supla_element;
-      uint8_t logic_operator;
-    } local_action_handler_data;
-  };
-  uint32_t user_data_3;
-  union {
-    uint32_t user_data_4;  //reserved for WebGUI bits 0...15 for Control_Id
-    struct {
-      uint32_t gui_control_id : 16;
-      uint32_t gui_reserved : 16;
+      uint16_t        gui_control_id; 
     } gui_control_data;
   };
-  uint32_t user_data_flags;
-  uint32_t timeout_secs;
-  uint32_t keep_alive_secs;
-  uint32_t refresh_secs;
-  uint64_t data_counter;
-  uint8_t ZB_device_id;
-  uint8_t reserved_7;
-  uint8_t reserved_8;
-  uint8_t reserved_9;
+  
+  union {
+    struct {
+      uint32_t        user_data_1;  //Tuya Rain Sensor rain_intensity, RGB mode, HVAC - probably unused
+      uint32_t        user_data_2;
+      uint32_t        user_data_3;
+      uint32_t        user_data_4; 
+  
+    };
+    struct {
+      uint32_t        rain_intensity_treshold;
+    };
+    struct {
+      uint32_t        rgb_color_mode;
+    };
+    struct {
+      uint32_t        hvac_fixed_temperature_correction;
+    };
+    struct {
+      uint32_t        remote_ip_address;
+      uint32_t        remote_Supla_channel:8;
+    };
+    struct {
+      uint32_t        value : 24;
+      uint32_t        program : 8;
+      uint32_t        pause_time : 24;
+      uint32_t        cycles : 8;
+    } smart_valve_data;
+    struct {
+      Supla::Element  *Supla_element;
+      uint8_t         logic_operator;
+    } local_action_handler_data;
+    struct {
+      char            mDNS_name[12];
+      uint8_t         remote_Supla_channel_2;
+      uint8_t         remote_address_type;
+    } remote_relay_data;
+  };
+  
+  uint32_t            user_data_flags;
+  uint32_t            timeout_secs;
+  uint32_t            keep_alive_secs;
+  uint32_t            refresh_secs;
+  uint64_t            data_counter;
+  uint8_t             ZB_device_id;
+  uint8_t             reserved_7;
+  uint8_t             reserved_8;
+  uint8_t             reserved_9;
 } z2s_device_params_t;
 
 typedef struct z2s_legacy_zb_device_params_s {
@@ -259,8 +277,8 @@ typedef struct z2s_zb_device_params_s {
   uint32_t user_data_flags;
   union {
     struct {
-      uint32_t user_data_1;  //Sonoff SWV b31 = 0 (time)/1(volume) b30-b24 cycles# b23-b0 worktime/volume
-      uint32_t user_data_2;  //Sonoff SWV b31-b24 reserved, b23-b0 pause
+      uint32_t user_data_1;
+      uint32_t user_data_2; 
     };
     struct {
       uint32_t value : 24;
@@ -322,11 +340,16 @@ const static char Z2S_CHANNELS_ACTIONS_PPREFIX[] PROGMEM = "Z2S_an_";
 const static char Z2S_CHANNELS_ACTIONS_PPREFIX_V2[] PROGMEM = "action_%04d.z2s";
 const static char Z2S_CHANNELS_ACTIONS_NUMBER[] PROGMEM = "Z2S_actions_n";
 
+
 const static char Z2S_FILES_STRUCTURE_VERSION[] PROGMEM = "Z2S_files_ver";
 
 const static char Z2S_CHANNELS_EXTENDED_DATA_PPREFIX_V2[] PROGMEM = "channel_ext_data_%03d_%02d.z2s";
 
 extern bool sendIASNotifications;
+
+static NetworkClient TestClient;
+
+extern char GatewayMDNSLocalName[12];
 
 //extern Supla::Sensor::GeneralPurposeMeasurement *Test_GeneralPurposeMeasurement;
 
@@ -336,6 +359,7 @@ const static char Z2S_ENABLE_GUI_ON_START[] PROGMEM = "Z2S_enable_gui";
 const static char Z2S_GUI_ON_START_DELAY[] PROGMEM = "Z2S_gui_delay";
 const static char Z2S_FORCE_CONFIG_ON_START[] PROGMEM = "Z2S_force_cfg";
 const static char Z2S_REBUILD_CHANNELS_ON_START[] PROGMEM = "Z2S_rebuild";
+const static char Z2S_GATEWAY_MDNS_LOCAL_NAME[] PROGMEM = "Z2S_mdns_name";
 
 namespace Supla {
 enum Conditions {
@@ -375,8 +399,8 @@ void Z2S_updateZbDeviceLastSeenMs(esp_zb_ieee_addr_t ieee_addr,
 
 uint8_t Z2S_addZbDeviceTableSlot(esp_zb_ieee_addr_t ieee_addr, 
                                  uint16_t short_addr,
-                                 char *manufacturer_name, 
-                                 char *model_name,
+                                 const char *manufacturer_name, 
+                                 const char *model_name,
                                  uint8_t endpoints_count, 
                                  uint32_t desc_id, 
                                  uint8_t power_source);
@@ -401,7 +425,7 @@ void Z2S_fillChannelsTableSlot(zbg_device_params_t *device,
                                uint8_t channel,
                                int32_t channel_type,
                                int8_t sub_id,
-                               char *name = nullptr,
+                               const char *name = nullptr,
                                uint32_t func = 0,
                                uint8_t secondary_channel = 0xFF,
                                uint8_t extended_data_type = CHANNEL_EXTENDED_DATA_TYPE_NULL,
@@ -610,7 +634,8 @@ void Z2S_onIASzoneStatusChangeNotification(esp_zb_ieee_addr_t ieee_addr,
                                            uint16_t cluster, 
                                            int iaszone_status);
 
-void Z2S_onBTCBoundDevice(zbg_device_params_t *device, uint8_t count, uint8_t position);
+void Z2S_onBTCBoundDevice(zbg_device_params_t *device, uint8_t count, 
+                          uint8_t position);
 
 void Z2S_onBoundDevice(zbg_device_params_t *device,
                        bool last_cluster);
@@ -625,15 +650,15 @@ void Z2S_onDeviceRejoin(uint16_t short_addr,
 
 uint8_t Z2S_addZ2SDevice(zbg_device_params_t *device,
                          int8_t sub_id = -1,
-                         char *name = nullptr,
+                         const char *name = nullptr,
                          uint32_t func = 0,
-                         char *unit = nullptr);
+                         const char *unit = nullptr);
 
 void Z2S_buildSuplaChannels(zbg_device_params_t *joined_device,
                             uint8_t endpoint_counter);
 
-uint8_t Z2S_addZ2SZbDevice(char *manufacturer_name,
-                           char *model_name,
+uint8_t Z2S_addZ2SZbDevice(const char *manufacturer_name,
+                           const char *model_name,
                            esp_zb_ieee_addr_t ieee_addr,
                            uint16_t short_addr,
                            uint8_t endpoints,
@@ -647,6 +672,24 @@ void updateTimeout(uint8_t channel_number_slot,
 void updateRGBMode(uint8_t channel_number_slot,
                    uint8_t rgb_mode);
 
+void sendChannelAction(uint8_t Supla_channel,
+                      uint16_t channel_action);
+
+void setRemoteRelay(uint8_t Supla_channel,
+                    bool state);
+
+void updateRemoteRelayMDNSName(uint8_t channel_number_slot,
+                               char * mDNS_name);
+
+void updateRemoteRelayIPAddress(uint8_t channel_number_slot,
+                                uint32_t remote_ip_address);
+
+void updateRemoteRelaySuplaChannel(uint8_t channel_number_slot,
+                                   uint8_t remote_Supla_channel);
+
+void updateHvacFixedCalibrationTemperature(uint8_t channel_number_slot,
+                                           int32_t hvac_fixed_calibration_temperature);
+
 void updateDeviceTemperature(uint8_t channel_number_slot,
                              int32_t temperature);
 
@@ -655,7 +698,7 @@ void updateSuplaBatteryLevel(int16_t channel_number_slot,
                              uint32_t msg_value,
                              bool restore = false);
 
-bool Z2S_add_action(char *action_name,
+bool Z2S_add_action(const char *action_name,
                     uint8_t src_channel_id,
                     uint16_t Supla_action,
                     uint8_t dst_channel_id,
@@ -672,4 +715,6 @@ void onTuyaCustomClusterReceive(void (*callback)(uint8_t command_id,
                                                  uint16_t payload_size, 
                                                  uint8_t *payload_data));
 
+
+void printSizeOfClasses();
 #endif
