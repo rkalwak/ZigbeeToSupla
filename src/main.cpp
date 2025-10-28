@@ -5,18 +5,15 @@
 #pragma warning(disable: -Wwrite-strings) 
 
 #define Z2S_GATEWAY
-#include <ZigbeeGateway.h>
-#include "priv_auth_data.h"
-#include "esp_coexist.h"
 
-#include "z2s_web_gui.h"
+
+#include <ESPmDNS.h>
+#include <esp_coexist.h>
+#include <esp_heap_caps.h>
+
+#include <ZigbeeGateway.h>
 
 #include <SuplaDevice.h>
-
-#include "z2s_devices_database.h"
-#include "z2s_devices_table.h"
-#include "z2s_device_general_purpose_measurement.h"
-
 #include <supla/network/esp_wifi.h>
 #include <supla/device/supla_ca_cert.h>
 #include <supla/storage/eeprom.h>
@@ -25,13 +22,19 @@
 #include <supla/actions.h>
 #include <supla/control/button.h>
 #include <supla/device/enter_cfg_mode_after_power_cycle.h>
-#include <Z2S_control/action_handler_with_callbacks.h>
-
 #include <supla/control/virtual_relay.h>
 #include <supla/sensor/general_purpose_measurement.h>
 #include <supla/device/status_led.h>
 
+#include <Z2S_control/action_handler_with_callbacks.h>
+#include <Z2S_control/Z2S_remote_relay.h>
+
+#include "z2s_devices_database.h"
+#include "z2s_devices_table.h"
+#include "z2s_device_general_purpose_measurement.h"
 #include "z2s_version_info.h"
+#include "priv_auth_data.h"
+#include "z2s_web_gui.h"
 
 #ifdef USE_TELNET_CONSOLE
 
@@ -50,11 +53,48 @@
 
 #define TIME_CLUSTER_REFRESH_MS     60 * 1000 //miliseconds
 
+/*static char tpc_send_buffer[8] = {0};
+static size_t bufferPos = 0;
+
+static uint8_t tcp_connect_state = 0;
+
+static size_t waitingAck = 0;
+
+static AsyncClient client;*/
+
+//static constexpr char *TEST_GATEWAY_IP PROGMEM = "10.164.38.17";
+//static constexpr char *TEST_GATEWAY_IP PROGMEM = "10.164.38.210";
+//static constexpr char *TEST_GATEWAY_IP PROGMEM = "192.168.1.70";
+//static String TEST_GATEWAY_IP PROGMEM = "192.168.1.36";
+//static String TEST_GATEWAY_IP PROGMEM = "192.168.1.70";
+
+static constexpr char *Z2S_TCP_CMD PROGMEM = "Z2SCMD";
+
+/*static uint8_t test_device_ieee_address[8] = 
+  {0x84, 0x71, 0x27, 0xFF, 0xFE, 0x98, 0x0E, 0x00};
+
+static uint8_t test_device_ieee_address_2[8] = 
+  {0x00, 0x0E, 0x98, 0xFE, 0xFF, 0x27, 0x71, 0x84};
+
+static uint8_t test_device_install_code[18] = 
+  {0x08, 0x0A, 0x84, 0x0E, 0xD6, 0x64,
+   0x22, 0xD1, 0xC8, 0xB2, 0x39, 0x11,
+   0x38, 0x2E, 0x1A, 0x74, 0x4F, 0xDB};*/
+
+static NetworkServer TestServer(REMOTE_RELAY_PORT);
+//static NetworkServer ThermometerServer(REMOTE_RELAY_PORT);
+static NetworkClient TestClient;
+static NetworkClient client2;
+//static Supla::Control::Z2S_RemoteRelay *testRemoteRelay;
+//Supla::Sensor::VirtualThermometer *TEST_VT;
+
+static bool tcp_server_started = false;
+
 ZigbeeGateway zbGateway = ZigbeeGateway(GATEWAY_ENDPOINT_NUMBER);
 
 Supla::Eeprom             eeprom;
 Supla::ESPWifi            wifi;
-Supla::LittleFsConfig     configSupla (4096);
+Supla::LittleFsConfig     configSupla(4096);
 
 constexpr uint8_t LED_PIN   = 8;
 constexpr uint8_t NUM_LEDS  = 1;
@@ -107,7 +147,14 @@ void supla_callback_bridge(int event, int action) {
           log_e("Zigbee failed to start! Rebooting...");
           SuplaDevice.scheduleSoftRestart(1000);
         }
-      
+
+        /*esp_zb_secur_ic_add(test_device_ieee_address, 
+                            ESP_ZB_IC_TYPE_128, 
+                            test_device_install_code);*/
+
+        /*esp_zb_secur_ic_add(test_device_ieee_address_2, 
+                            ESP_ZB_IC_TYPE_128, 
+                            test_device_install_code);*/
         refresh_time = 0;
         
         #ifdef USE_TELNET_CONSOLE
@@ -116,6 +163,10 @@ void supla_callback_bridge(int event, int action) {
         onTelnetCmd(Z2S_onTelnetCmd); 
 
         #endif //USE_TELNET_CONSOLE
+
+        TestServer.begin();
+        MDNS.begin(GatewayMDNSLocalName);
+
         return;
       }
       if (Zigbee.started() && 
@@ -206,6 +257,7 @@ void enableZ2SNotifications() {
   zbGateway.onTemperatureReceive(Z2S_onTemperatureReceive);
   zbGateway.onHumidityReceive(Z2S_onHumidityReceive);
   zbGateway.onPressureReceive(Z2S_onPressureReceive);
+  zbGateway.onPM25Receive(Z2S_onPM25Receive);
   zbGateway.onIlluminanceReceive(Z2S_onIlluminanceReceive);
   zbGateway.onFlowReceive(Z2S_onFlowReceive);
   zbGateway.onOccupancyReceive(Z2S_onOccupancyReceive);
@@ -224,6 +276,7 @@ void enableZ2SNotifications() {
   zbGateway.onSonoffCustomClusterReceive(Z2S_onSonoffCustomClusterReceive);
   zbGateway.onDevelcoCustomClusterReceive(Z2S_onDevelcoCustomClusterReceive);
   zbGateway.onLumiCustomClusterReceive(Z2S_onLumiCustomClusterReceive);
+  zbGateway.onIkeaCustomClusterReceive(Z2S_onIkeaCustomClusterReceive);
   zbGateway.onBatteryReceive(Z2S_onBatteryReceive);
   zbGateway.onCustomCmdReceive(Z2S_onCustomCmdReceive);
   zbGateway.onCmdCustomClusterReceive(Z2S_onCmdCustomClusterReceive);
@@ -243,6 +296,7 @@ void disableZ2SNotifications() {
   zbGateway.onTemperatureReceive(nullptr);
   zbGateway.onHumidityReceive(nullptr);
   zbGateway.onPressureReceive(nullptr);
+  zbGateway.onPM25Receive(nullptr);
   zbGateway.onIlluminanceReceive(nullptr);
   zbGateway.onFlowReceive(nullptr);
   zbGateway.onOccupancyReceive(nullptr);
@@ -261,6 +315,7 @@ void disableZ2SNotifications() {
   zbGateway.onSonoffCustomClusterReceive(nullptr);
   zbGateway.onDevelcoCustomClusterReceive(nullptr);
   zbGateway.onLumiCustomClusterReceive(nullptr);
+  zbGateway.onIkeaCustomClusterReceive(nullptr);
   zbGateway.onBatteryReceive(nullptr);
   zbGateway.onCustomCmdReceive(nullptr);
   zbGateway.onCmdCustomClusterReceive(nullptr);
@@ -318,10 +373,32 @@ Supla::Device::StatusLed statusLed(RGB_BUILTIN, true);
 
 void setup() {
   
+  
   //esp_log_set_vprintf(&spiffs_log_vprintf);
 
   log_i("setup start");
 
+  printSizeOfClasses();
+  uint32_t sanity_check_time_ms = millis();
+  uint16_t devices_list_table_size = sizeof(Z2S_DEVICES_LIST)/sizeof(Z2S_DEVICES_LIST[0]);
+  uint8_t match = 0;
+
+  for(uint16_t i = 0; i < devices_list_table_size; i++) {
+    match = 0;
+    for (uint16_t j = 0; j < devices_list_table_size; j++) {
+      
+      if ((Z2S_DEVICES_LIST[i].z2s_device_uid > 0) &&
+          (Z2S_DEVICES_LIST[i].z2s_device_uid == Z2S_DEVICES_LIST[j].z2s_device_uid))
+        match++;
+      if (match > 1) {
+
+        log_e("Critical! Duplicate found %s", Z2S_DEVICES_LIST[i].manufacturer_name);
+        break;
+      }
+    }
+  }
+  sanity_check_time_ms = millis() - sanity_check_time_ms;
+  log_i("Sanity check time %lu", sanity_check_time_ms);
   //log_d("Total PSRAM: %d", ESP.getPsramSize());
   //log_d("Free PSRAM: %d", ESP.getFreePsram());
 
@@ -330,7 +407,7 @@ void setup() {
   pinMode(WIFI_ENABLE, OUTPUT); // pinMode(3, OUTPUT); (credits @Zibi_007)in
   pinMode(WIFI_ANT_CONFIG, OUTPUT); // pinMode(14, OUTPUT);
   digitalWrite(WIFI_ANT_CONFIG, HIGH);
-
+ 
   eeprom.setStateSavePeriod(5000);
 
   new Supla::Clock;
@@ -361,6 +438,27 @@ void setup() {
   toggleNotifications->setInitialCaption("Gateway sensors notifications");
   toggleNotifications->setDefaultFunction(SUPLA_CHANNELFNC_POWERSWITCH);
   toggleNotifications->setDefaultStateRestore();
+
+  //TEST_VT = new Supla::Control::VirtualThermometer();
+  //TEST_VT->getChannel()->setChannelNumber(112);
+
+  /*auto at1 = new Supla::Control::ActionTrigger();
+  at1->getChannel()->setChannelNumber(111);
+  at1->setInitialCaption("TEST AT");
+  at1->getChannel()->setActionTriggerCaps(
+    SUPLA_ACTION_CAP_TURN_ON |
+    SUPLA_ACTION_CAP_TURN_OFF |
+    SUPLA_ACTION_CAP_TOGGLE_x1 |
+    SUPLA_ACTION_CAP_TOGGLE_x2 |
+    SUPLA_ACTION_CAP_TOGGLE_x3 |
+    SUPLA_ACTION_CAP_TOGGLE_x4 |
+    SUPLA_ACTION_CAP_TOGGLE_x5 |
+    SUPLA_ACTION_CAP_HOLD |
+    SUPLA_ACTION_CAP_SHORT_PRESS_x1 |
+    SUPLA_ACTION_CAP_SHORT_PRESS_x2 |
+    SUPLA_ACTION_CAP_SHORT_PRESS_x3 |
+    SUPLA_ACTION_CAP_SHORT_PRESS_x4 |
+    SUPLA_ACTION_CAP_SHORT_PRESS_x5);*/
 
   auto AHwC = new Supla::ActionHandlerWithCallbacks();
   AHwC->setActionHandlerCallback(supla_callback_bridge);
@@ -405,7 +503,7 @@ void setup() {
 
   Z2S_loadZbDevicesTable();
 
-    esp_zb_ieee_addr_t esp_zb_ieee_addr = {};
+  esp_zb_ieee_addr_t esp_zb_ieee_addr = {};
 
   esp_zb_ieee_addr[0] = 0xCC;
   //Z2S_addZbDeviceTableSlot(esp_zb_ieee_addr, 0, "_TZE200_wzk0x7fq","TS0601", 1, Z2S_DEVICE_DESC_TUYA_VIBRATION_SENSOR, 0);
@@ -472,6 +570,7 @@ void setup() {
   zbGateway.allowMultipleBinding(true);
 
   Zigbee.addGatewayEndpoint(&zbGateway);
+  //Zigbee.addEndpoint(&zbGateway); //???
 
   uint32_t zb_primary_channel_mask;
 
@@ -506,7 +605,17 @@ void setup() {
     log_i("Z2S_GUI_ON_START_DELAY not configured - setting to 0 s");
     _gui_start_delay = 0;
   }
-  //_gui_start_delay = 15;
+
+  //GatewayMDNSLocalName = "Z2S_gateway"
+
+  if (Supla::Storage::ConfigInstance()->
+      getString(Z2S_GATEWAY_MDNS_LOCAL_NAME, GatewayMDNSLocalName, 12)) {
+    log_i("Z2S_GATEWAY_MDNS_LOCAL_NAME = %s", GatewayMDNSLocalName);
+  } else {
+    log_i("Z2S_GATEWAY_MDNS_LOCAL_NAME not configured - using default");
+    //GatewayMDNSLocalName = "Z2S_gateway";
+  }
+  
   Supla::Storage::ConfigInstance()->getUInt8(PSTR("security_level"), &_z2s_security_level);
   
   Supla::Storage::ConfigInstance()->setUInt8(Z2S_FILES_STRUCTURE_VERSION, 2);
@@ -525,6 +634,40 @@ void setup() {
   SuplaDevice.begin();      
   
   refresh_time = millis();
+
+
+   /*client.onDisconnect([](void *arg, AsyncClient *client) {
+    Serial.printf("Disconnected.\n");
+    tcp_connect_state = 0;
+  });
+
+  // register a callback when an error occurs
+  client.onError([](void *arg, AsyncClient *client, int8_t error) {
+    Serial.printf("Error: %s\n", client->errorToString(error));
+  });
+
+  // register a callback when data arrives, to accumulate it
+  client.onData([](void *arg, AsyncClient *client, void *data, size_t len) {
+    Serial.printf("Received %u bytes...\n", len);
+    Serial.write((uint8_t *)data, len);
+  });
+
+  // register a callback when we are connected
+  client.onConnect([](void *arg, AsyncClient *client) {
+    Serial.printf("Connected!\n");
+    tcp_connect_state = 2;
+  });
+
+  client.onAck([](void *arg, AsyncClient *client, size_t len, uint32_t time) {
+    Serial.printf("Acked %u bytes in %" PRIu32 " ms\n", len, time);
+    assert(waitingAck >= len);
+    waitingAck -= len;
+  });
+
+  client.setRxTimeout(20000);
+  client.setNoDelay(true);
+*/
+
 }
 
 zbg_device_params_t *gateway_device;
@@ -572,6 +715,74 @@ void loop() {
   if (is_Telnet_server) telnet.loop();
 
 #endif //USE_TELNET_CONSOLE
+
+
+client2 = TestServer.available();
+
+if (client2 && client2.connected()) {
+     
+     String request = client2.readStringUntil('\n');
+     Serial.println(request);
+     int16_t cmd_pos = request.indexOf(Z2S_TCP_CMD);
+
+
+     if (cmd_pos >= 0 ) {
+
+      Serial.printf("cmd pos %u\n\r", cmd_pos);
+      String helper;
+      helper.reserve(64);
+      
+      helper = request.substring(cmd_pos + 6, cmd_pos + 8);
+      //Serial.println(helper);
+      uint8_t cmd_id = helper.toInt();
+      
+      helper = request.substring(cmd_pos + 8, cmd_pos + 11);
+      uint8_t cmd_dst_channel = helper.toInt();      
+    
+      switch (cmd_id) {
+
+
+        case 0x00:
+        case 0x01: { //Relay On/Off
+
+          log_i("\n\rZ2S TCP ON/OFF command received id = %u"
+                "\n\rfor channel = %u",
+                cmd_id,
+                cmd_dst_channel);
+
+          setRemoteRelay(cmd_dst_channel, cmd_id);
+        } break;
+
+
+        case  0x10: { //remote thermometer
+
+          helper = request.substring(cmd_pos + 11, cmd_pos + 14);
+          uint32_t cmd_src_channel = helper.toInt();
+          
+          helper = request.substring(cmd_pos + 14, cmd_pos + 22);
+          int32_t cmd_thermometer_value = helper.toInt();
+
+          log_i("\n\rZ2S TCP thermometer command received id = %u"
+                "\n\rremote IP = %s"
+                "\n\rfrom channel = %u"
+                "\n\rto local channel = %u"
+                "\n\rwith value = %lu",
+                cmd_id,
+                client2.remoteIP().toString(),
+                cmd_src_channel,
+                cmd_dst_channel,
+                cmd_thermometer_value);
+
+          updateRemoteThermometer(cmd_dst_channel, 
+                                  client2.remoteIP(), 
+                                  cmd_src_channel,
+                                  cmd_thermometer_value);
+        } break;
+      }      
+      client2.print("OK\n");
+     }
+     client2.stop();
+   }
 
 if (GUIstarted)
       Z2S_loopWebGUI();
@@ -641,6 +852,22 @@ if (GUIstarted)
       Z2S_updateWebGUI();
 
     _time_cluster_last_refresh_ms = millis();
+    
+    log_i("\n\rMemory information:"
+          "\n\rFlash chip real size: %u B"
+          "\n\rFree Sketch Space: %u B"
+					"\n\rFree Heap: %u B"
+          "\n\rMinimal Free Heap: %u B"
+					"\n\rHeapSize: %u B"
+          "\n\rMaxAllocHeap: %u B"
+					"\n\rSupla uptime: %lu s", 
+					ESP.getFlashChipSize(), 
+          ESP.getFreeSketchSpace(), 
+          ESP.getFreeHeap(), 
+          ESP.getMinFreeHeap(), 
+          ESP.getHeapSize(),
+					ESP.getMaxAllocHeap(), 
+          SuplaDevice.uptime.getUptime());
   }
 
   if (millis() - refresh_time > REFRESH_PERIOD) {
@@ -680,20 +907,69 @@ if (GUIstarted)
 
         //}
       }
-      if (refresh_cycle % 30 == 0) {
-        //log_i("getZbgDeviceUnitLastSeenMs %d, current millis %d", zbGateway.getZbgDeviceUnitLastSeenMs(device->short_addr), millis());
-        log_i( "Memory information: Flash chip real size:%u B, Free Sketch Space:%u B, "
-						"Free Heap:%u, Minimal Free Heap:%u B, "
-						"HeapSize:%u B, MaxAllocHeap:%u B, "
-						"Supla uptime:%lu s", 
-						ESP.getFlashChipSize(), ESP.getFreeSketchSpace(), ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getHeapSize(),
-						ESP.getMaxAllocHeap(), SuplaDevice.uptime.getUptime());
-      }
+
+    if (refresh_cycle % 12 == 0) {
+
+      //heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
+      //heap_caps_dump_all();
+  
     }
+   
+        /*switch (tcp_connect_state) {
+          
+          case 0: {
+            
+            Serial.printf("Connecting...\n");
+            if (!client.connect("192.168.1.36", 1234)) {
+            
+              Serial.printf("Failed to connect!\n");
+              delay(1000);  // to not flood logs
+            } else {
+              tcp_connect_state = 1;
+            } break;
+          }
+
+          case 1: {
+
+            Serial.printf("Still connecting...\n");
+            delay(500);  // to not flood logs
+          } break;
+
+          case 2: {
+
+            tpc_send_buffer[0] = 'A';
+            tpc_send_buffer[1] = 'B';
+            tpc_send_buffer[2] = 0;
+            client.write(tpc_send_buffer, 3);
+          }
+        }*/
+      //}
+      if (refresh_cycle % 3 == 0) {
+        //log_i("getZbgDeviceUnitLastSeenMs %d, current millis %d", zbGateway.getZbgDeviceUnitLastSeenMs(device->short_addr), millis());
+        /*uint32_t random_temperature = (21 + random(-5, 5)) * 100;
+        uint8_t random_src_channel = 1 + random(0,127);
+        if (TestClient.connect(MDNS.queryHost("bramka_36"), 1234)) {
+
+          TestClient.printf("Z2SCMD%02u%03u%03u%08ld\n", 
+                            0x10, 
+                            5,
+                            random_src_channel,
+                            random_temperature);
+    
+    
+          String response = TestClient.readStringUntil('\n');
+          if (response == "OK") 
+            log_i("Temperature sent");
+        
+          TestClient.stop();
+        }*/
+      }
+    //}
     if (!zbGateway.getGatewayDevices().empty()) {
       refresh_time = millis();
       refresh_cycle = (refresh_cycle + 1) % 12;
     }
+  }
   }
 
   if (zbGateway.isNewDeviceJoined()) {
@@ -721,12 +997,15 @@ if (GUIstarted)
       
       bool _basic_cluster_query_success = false;
 
-      if ((strlen(zbGateway.getQueryBasicClusterData()->zcl_model_name) == 0) ||
-          (strlen(zbGateway.getQueryBasicClusterData()->zcl_manufacturer_name) == 0)) {
+      if ((strlen(
+            zbGateway.getQueryBasicClusterData()->zcl_model_name) == 0) ||
+          (strlen(
+            zbGateway.getQueryBasicClusterData()->zcl_manufacturer_name) == 0)) {
       
         for (uint8_t query_idx = 0; query_idx < 5; query_idx++) {
 
-          _basic_cluster_query_success =  zbGateway.zbQueryDeviceBasicCluster(joined_device);
+          _basic_cluster_query_success =  
+            zbGateway.zbQueryDeviceBasicCluster(joined_device);
           if (_basic_cluster_query_success)
             break; 
         }
@@ -735,7 +1014,8 @@ if (GUIstarted)
 
       if (!_basic_cluster_query_success) {
         
-          log_i("Error while pairing - cann't read manufacturer id (5x). Gateway will restart, try to pair device once again!");
+          log_i("Error while pairing - cann't read manufacturer id (5x). "
+                "Gateway will restart, try to pair device once again!");
           SuplaDevice.scheduleSoftRestart(1000);
         } 
       //write_mask = 0x13;
@@ -743,45 +1023,73 @@ if (GUIstarted)
       //write_mask = 0x1;
       //zbGateway.sendAttributeWrite(joined_device, 0xfcc0, 0x0009, ESP_ZB_ZCL_ATTR_TYPE_U8, 1, &write_mask, 1, 0x115F); //Lumi magic
 
-      uint16_t devices_list_table_size = sizeof(Z2S_DEVICES_LIST)/sizeof(Z2S_DEVICES_LIST[0]);
-      uint16_t devices_desc_table_size = sizeof(Z2S_DEVICES_DESC)/sizeof(Z2S_DEVICES_DESC[0]);
+      uint16_t devices_list_table_size = 
+        sizeof(Z2S_DEVICES_LIST)/sizeof(Z2S_DEVICES_LIST[0]);
+
+      uint16_t devices_desc_table_size = 
+        sizeof(Z2S_DEVICES_DESC)/sizeof(Z2S_DEVICES_DESC[0]);
+
       bool device_recognized = false;
 
-          for (int devices_list_counter = 0; devices_list_counter < devices_list_table_size; devices_list_counter++) { 
+          for (int devices_list_counter = 0; 
+               devices_list_counter < devices_list_table_size; 
+               devices_list_counter++) { 
             
             if ((strcmp(zbGateway.getQueryBasicClusterData()->zcl_model_name, 
-                        Z2S_DEVICES_LIST[devices_list_counter].model_name) == 0) &&
-            (strcmp(zbGateway.getQueryBasicClusterData()->zcl_manufacturer_name, 
-                    Z2S_DEVICES_LIST[devices_list_counter].manufacturer_name) == 0)) {
+                  Z2S_DEVICES_LIST[devices_list_counter].model_name) == 0) &&
+                (strcmp(zbGateway.getQueryBasicClusterData()->zcl_manufacturer_name, 
+                  Z2S_DEVICES_LIST[devices_list_counter].manufacturer_name) == 0)) {
 
-              log_i("LIST matched %s::%s, entry # %d, endpoints # %d, endpoints 0x%x::0x%x,0x%x::0x%x,0x%x::0x%x,0x%x::0x%x",
+              log_i("LIST matched %s::%s, entry # %d, endpoints # %d, "
+                    "endpoints 0x%x::0x%x,0x%x::0x%x,0x%x::0x%x,0x%x::0x%x",
                     Z2S_DEVICES_LIST[devices_list_counter].manufacturer_name, 
                     Z2S_DEVICES_LIST[devices_list_counter].model_name, 
                     devices_list_counter, 
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints_count,
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[0].endpoint_id, 
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[0].z2s_device_desc_id,
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[1].endpoint_id, 
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[1].z2s_device_desc_id,
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[2].endpoint_id, 
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[2].z2s_device_desc_id,
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[3].endpoint_id, 
-                    Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[3].z2s_device_desc_id);
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints_count,
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[0].endpoint_id, 
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[0].z2s_device_desc_id,
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[1].endpoint_id, 
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[1].z2s_device_desc_id,
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[2].endpoint_id, 
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[2].z2s_device_desc_id,
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[3].endpoint_id, 
+                    Z2S_DEVICES_LIST[devices_list_counter].\
+                      z2s_device_endpoints[3].z2s_device_desc_id);
   
               for (int endpoint_counter = 0; 
-                   endpoint_counter < Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints_count; 
+                   endpoint_counter < Z2S_DEVICES_LIST[devices_list_counter].\
+                    z2s_device_endpoints_count; 
                    endpoint_counter++) {
               
-                uint8_t endpoint_id = (Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints_count == 1) ? 
-                                       1 : Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[endpoint_counter].endpoint_id; 
+                uint8_t endpoint_id = 
+                  (Z2S_DEVICES_LIST[devices_list_counter].\
+                    z2s_device_endpoints_count == 1) ? 
+                  1 : Z2S_DEVICES_LIST[devices_list_counter].\
+                    z2s_device_endpoints[endpoint_counter].endpoint_id; 
                                         
-                uint32_t z2s_device_desc_id = (Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints_count == 1) ?
-                                              Z2S_DEVICES_LIST[devices_list_counter].z2s_device_desc_id :
-                                              Z2S_DEVICES_LIST[devices_list_counter].z2s_device_endpoints[endpoint_counter].z2s_device_desc_id; 
+                uint32_t z2s_device_desc_id = 
+                  (Z2S_DEVICES_LIST[devices_list_counter].\
+                    z2s_device_endpoints_count == 1) ?
+                  Z2S_DEVICES_LIST[devices_list_counter].\
+                    z2s_device_desc_id :
+                  Z2S_DEVICES_LIST[devices_list_counter].\
+                  z2s_device_endpoints[endpoint_counter].z2s_device_desc_id; 
 
-                for (int devices_desc_counter = 0; devices_desc_counter < devices_desc_table_size; devices_desc_counter++) {
+                for (int devices_desc_counter = 0; 
+                     devices_desc_counter < devices_desc_table_size; 
+                     devices_desc_counter++) {
 
-                  if ( z2s_device_desc_id == Z2S_DEVICES_DESC[devices_desc_counter].z2s_device_desc_id) {
+                  if (z2s_device_desc_id == 
+                        Z2S_DEVICES_DESC[devices_desc_counter].\
+                          z2s_device_desc_id) {
                     log_i("DESC matched 0x%x, %d, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, endpoint 0x%x ",
                           Z2S_DEVICES_DESC[devices_desc_counter].z2s_device_desc_id,   
                           Z2S_DEVICES_DESC[devices_desc_counter].z2s_device_clusters_count,
@@ -1082,8 +1390,8 @@ if (GUIstarted)
                   zbGateway.sendAddGroupRequestCmd(joined_device, 0, true);
                   zbGateway.sendAddGroupRequestCmd(joined_device, 0, false);
                 } break;*/
-                 
-                
+
+    
     
                 case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_5F:
                 case Z2S_DEVICE_DESC_TUYA_SMART_BUTTON_3F:
@@ -1180,28 +1488,48 @@ if (GUIstarted)
                                                1, 
                                                &write_mask); //Tuya special
 
-                  zbGateway.setClusterReporting(joined_device, 
-                                                ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 
-                                                ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID,
-                                                ESP_ZB_ZCL_ATTR_TYPE_BOOL, 
-                                                0, 
-                                                300, 
-                                                1, 
-                                                false);
+                  zbGateway.setClusterReporting(
+                    joined_device, 
+                    ESP_ZB_ZCL_CLUSTER_ID_ON_OFF, 
+                    ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID,
+                    ESP_ZB_ZCL_ATTR_TYPE_BOOL, 
+                    0, 300, 1, false);
                 } break;
                    
                 case Z2S_DEVICE_DESC_SONOFF_TRVZB: {
                   
-                  zbGateway.setClusterReporting(joined_device, 
-                                                ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, 
-                                                ESP_ZB_ZCL_ATTR_THERMOSTAT_LOCAL_TEMPERATURE_ID,
-                                                ESP_ZB_ZCL_ATTR_TYPE_S16, 
-                                                0, 
-                                                1200, 
-                                                10, 
-                                                false);                 
+                  zbGateway.setClusterReporting(
+                    joined_device, 
+                    ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, 
+                    ESP_ZB_ZCL_ATTR_THERMOSTAT_LOCAL_TEMPERATURE_ID,
+                    ESP_ZB_ZCL_ATTR_TYPE_S16, 
+                    0, 1200, 10, false);                 
                 } break;
                 
+                case Z2S_DEVICE_DESC_BOSCH_BTHRA: {  //no data from thermostat without reporting
+                  
+                  zbGateway.setClusterReporting(
+                    joined_device, 
+                    ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, 
+                    ESP_ZB_ZCL_ATTR_THERMOSTAT_LOCAL_TEMPERATURE_ID,
+                    ESP_ZB_ZCL_ATTR_TYPE_S16, 
+                    30, 900, 20, false);
+                  zbGateway.setClusterReporting(
+                    joined_device, 
+                    ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, 
+                    ESP_ZB_ZCL_ATTR_THERMOSTAT_OCCUPIED_HEATING_SETPOINT_ID,
+                    ESP_ZB_ZCL_ATTR_TYPE_S16, 
+                    0, 65000, 1, false);
+                  zbGateway.setClusterReporting(
+                    joined_device, 
+                    ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, 
+                    BOSCH_HEATING_DEMAND_ID,
+                    ESP_ZB_ZCL_ATTR_TYPE_S16, 
+                    0, 65000, 0, false,
+                    ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
+                    1, 1, BOSCH_MANUFACTURER_CODE);                 
+                } break;
+
                 case Z2S_DEVICE_DESC_PHILIPS_HUE_DIMMER_SWITCH: {
 
                   

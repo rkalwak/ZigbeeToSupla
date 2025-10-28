@@ -42,25 +42,27 @@
 #define USER_DATA_FLAG_TRV_FIXED_CORRECTION         (1 << 8)  // 0x0100
 #define USER_DATA_FLAG_TRV_AUTO_TO_SCHEDULE_MANUAL  (1 << 9)  // 0x0200
 #define USER_DATA_FLAG_TRV_COOPERATIVE_CHILDLOCK    (1 << 10) // 0x0400
+#define USER_DATA_FLAG_ENABLE_RESEND_TEMPERATURE    (1 << 11) // 0x0800
+#define USER_DATA_FLAG_REMOTE_ADDRESS_TYPE_MDNS     (1 << 12) // 0x1000
 
-#define ZBD_USER_DATA_FLAG_VERSION_2_0 (1 << 0)
-#define ZBD_USER_DATA_FLAG_RESERVED_1 (1 << 1)
-#define ZBD_USER_DATA_FLAG_RESERVED_2 (1 << 2)
-#define ZBD_USER_DATA_FLAG_RESERVED_3 (1 << 3)
-#define ZBD_USER_DATA_FLAG_RESERVED_4 (1 << 4)
-#define ZBD_USER_DATA_FLAG_RESERVED_5 (1 << 5)
-#define ZBD_USER_DATA_FLAG_DISABLE_BATTERY_MSG (1 << 6)
+#define ZBD_USER_DATA_FLAG_VERSION_2_0                    (1 << 0)
+#define ZBD_USER_DATA_FLAG_RESERVED_1                     (1 << 1)
+#define ZBD_USER_DATA_FLAG_RESERVED_2                     (1 << 2)
+#define ZBD_USER_DATA_FLAG_RESERVED_3                     (1 << 3)
+#define ZBD_USER_DATA_FLAG_RESERVED_4                     (1 << 4)
+#define ZBD_USER_DATA_FLAG_RESERVED_5                     (1 << 5)
+#define ZBD_USER_DATA_FLAG_DISABLE_BATTERY_MSG            (1 << 6)
 #define ZBD_USER_DATA_FLAG_DISABLE_BATTERY_PERCENTAGE_MSG (1 << 7)
-#define ZBD_USER_DATA_FLAG_DISABLE_BATTERY_VOLTAGE_MSG (1 << 8)
+#define ZBD_USER_DATA_FLAG_DISABLE_BATTERY_VOLTAGE_MSG    (1 << 8)
 
-#define ZBD_USER_DATA_FLAG_TUYA_QUERY_AFTER_REJOIN (1 << 16)
+#define ZBD_USER_DATA_FLAG_TUYA_QUERY_AFTER_REJOIN        (1 << 16)
 
 #define ZBD_BATTERY_PERCENTAGE_MSG 0x01
-#define ZBD_BATTERY_VOLTAGE_MSG 0x02
-#define ZBD_BATTERY_LEVEL_MSG 0x03
-#define ZBD_BATTERY_STATE_MSG 0x04
-#define ZBD_LOW_BATTERY_MSG 0x05
-#define ZBD_BATTERY_RESTORE_MSG 0x06
+#define ZBD_BATTERY_VOLTAGE_MSG    0x02
+#define ZBD_BATTERY_LEVEL_MSG      0x03
+#define ZBD_BATTERY_STATE_MSG      0x04
+#define ZBD_LOW_BATTERY_MSG        0x05
+#define ZBD_BATTERY_RESTORE_MSG    0x06
 
 #define CHANNEL_EXTENDED_DATA_TYPE_NULL 0x00
 
@@ -103,33 +105,27 @@ typedef struct z2s_device_params_s {
   bool                valid_record;
   uint8_t             extended_data_type;
   uint8_t             local_channel_type;
-  uint8_t             reserved_3;
+  uint8_t             local_channel_func;
   uint32_t            model_id;
   esp_zb_ieee_addr_t  ieee_addr;
   uint8_t             endpoint;
   uint16_t            cluster_id;
   uint16_t            short_addr;
   uint8_t             Supla_channel;
+union {
   uint8_t             Supla_secondary_channel;
+  uint8_t             Supla_remote_channel;
+};
   int32_t             Supla_channel_type;
   char                Supla_channel_name[32];
   uint32_t            Supla_channel_func;
   int8_t              sub_id;
   uint8_t             reserved_4;
-
-  union {
-    struct {
-      uint8_t         reserved_5;
-      uint8_t         reserved_6;
-    };
-    struct {
-      uint16_t        gui_control_id; 
-    } gui_control_data;
-  };
+  uint16_t            gui_control_id;
   
   union {
     struct {
-      uint32_t        user_data_1;  //Tuya Rain Sensor rain_intensity, RGB mode, HVAC - probably unused
+      uint32_t        user_data_1; 
       uint32_t        user_data_2;
       uint32_t        user_data_3;
       uint32_t        user_data_4; 
@@ -142,11 +138,7 @@ typedef struct z2s_device_params_s {
       uint32_t        rgb_color_mode;
     };
     struct {
-      uint32_t        hvac_fixed_temperature_correction;
-    };
-    struct {
-      uint32_t        remote_ip_address;
-      uint32_t        remote_Supla_channel:8;
+      int32_t        hvac_fixed_temperature_correction;
     };
     struct {
       uint32_t        value : 24;
@@ -160,16 +152,21 @@ typedef struct z2s_device_params_s {
     } local_action_handler_data;
     struct {
       char            mDNS_name[12];
-      uint8_t         remote_Supla_channel_2;
-      uint8_t         remote_address_type;
-    } remote_relay_data;
+      uint32_t        remote_ip_address;
+    } remote_channel_data;
   };
-  
   uint32_t            user_data_flags;
   uint32_t            timeout_secs;
   uint32_t            keep_alive_secs;
   uint32_t            refresh_secs;
-  uint64_t            data_counter;
+union {
+  struct {
+    uint64_t          data_counter;
+  };
+  struct {
+      uint32_t        last_temperature_measurement;//TEMP*100
+    };
+};
   uint8_t             ZB_device_id;
   uint8_t             reserved_7;
   uint8_t             reserved_8;
@@ -347,7 +344,7 @@ const static char Z2S_CHANNELS_EXTENDED_DATA_PPREFIX_V2[] PROGMEM = "channel_ext
 
 extern bool sendIASNotifications;
 
-static NetworkClient TestClient;
+//static NetworkClient Z2S_NetworkClient;
 
 extern char GatewayMDNSLocalName[12];
 
@@ -432,9 +429,13 @@ void Z2S_fillChannelsTableSlot(zbg_device_params_t *device,
                                uint8_t *extended_data = nullptr);
 
 bool Z2S_setChannelFlags(int16_t channel_number_slot, 
-                         uint32_t flags_to_set);
+                         uint32_t flags_to_set,
+                         bool save_table = true);
 bool Z2S_clearChannelFlags(int16_t channel_number_slot, 
-                           uint32_t flags_to_clear);
+                           uint32_t flags_to_clear,
+                           bool save_table = true);
+bool Z2S_checkChannelFlags(int16_t channel_number_slot, 
+                           uint32_t flags_to_check);
 
 bool Z2S_setZbDeviceFlags(int8_t device_number_slot, 
                           uint32_t flags_to_set);
@@ -469,8 +470,10 @@ uint16_t Z2S_getActionsNumber();
 int16_t Z2S_getActionCounter(uint16_t action_position);
 
 int16_t Z2S_findFreeActionIndex();
-int16_t Z2S_findNextActionPosition(uint16_t action_position = 0);
-int16_t Z2S_findPrevActionPosition(uint16_t action_position = Z2S_ACTIONS_MAX_NUMBER);
+int16_t Z2S_findNextActionPosition(
+  uint16_t action_position = 0);
+int16_t Z2S_findPrevActionPosition(
+  uint16_t action_position = Z2S_ACTIONS_MAX_NUMBER);
 
 bool Z2S_saveAction(uint16_t action_index, 
                     z2s_channel_action_t &action);
@@ -484,20 +487,24 @@ void Z2S_initSuplaActions();
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
-uint16_t Z2S_getChannelExtendedDataTypeSize(uint8_t extended_data_type);
+uint16_t Z2S_getChannelExtendedDataTypeSize(
+  uint8_t extended_data_type);
 
-bool Z2S_saveChannelExtendedData(int16_t channel_number_slot,
-                                 uint8_t extended_data_type,
-                                 uint8_t *extended_data,
-                                 bool save_table = true);
+bool Z2S_saveChannelExtendedData(
+  int16_t channel_number_slot,
+  uint8_t extended_data_type,
+  uint8_t *extended_data,
+  bool save_table = true);
 
-bool Z2S_removeChannelExtendedData(int16_t channel_number_slot,
-                                   uint8_t extended_data_type,
-                                   bool save_table = true);
+bool Z2S_removeChannelExtendedData(
+  int16_t channel_number_slot,
+  uint8_t extended_data_type,
+  bool save_table = true);
 
-bool Z2S_loadChannelExtendedData(int16_t channel_number_slot,
-                                 uint8_t extended_data_type,
-                                 uint8_t *extended_data);
+bool Z2S_loadChannelExtendedData(
+  int16_t channel_number_slot,
+  uint8_t extended_data_type,
+  uint8_t *extended_data);
 
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
@@ -515,6 +522,12 @@ void Z2S_onPressureReceive(esp_zb_ieee_addr_t ieee_addr,
                            uint16_t endpoint, 
                            uint16_t cluster, 
                            float pressure);
+
+void Z2S_onPM25Receive(esp_zb_ieee_addr_t ieee_addr, 
+                       uint16_t endpoint, 
+                       uint16_t cluster, 
+                       float pm25);
+
 
 void Z2S_onIlluminanceReceive(esp_zb_ieee_addr_t ieee_addr, 
                               uint16_t endpoint, 
@@ -609,6 +622,11 @@ void Z2S_onLumiCustomClusterReceive(esp_zb_ieee_addr_t ieee_addr,
                                     uint16_t cluster,
                                     const esp_zb_zcl_attribute_t *attribute);
 
+void Z2S_onIkeaCustomClusterReceive(esp_zb_ieee_addr_t ieee_addr, 
+                                    uint16_t endpoint, 
+                                    uint16_t cluster,
+                                    const esp_zb_zcl_attribute_t *attribute);
+
 void Z2S_onBatteryReceive(esp_zb_ieee_addr_t ieee_addr, 
                           uint16_t endpoint, 
                           uint16_t cluster, 
@@ -687,8 +705,17 @@ void updateRemoteRelayIPAddress(uint8_t channel_number_slot,
 void updateRemoteRelaySuplaChannel(uint8_t channel_number_slot,
                                    uint8_t remote_Supla_channel);
 
+void updateRemoteThermometer(uint8_t Supla_channel,
+                             uint32_t connected_thermometer_ip_address,
+                             uint32_t connected_thermometer_channel,
+                             int32_t connected_thermometer_temperature);
+
+void setRemoteThermometerFunction(uint8_t Supla_channel,
+                                  uint32_t connected_thermometers_function);
+
 void updateHvacFixedCalibrationTemperature(uint8_t channel_number_slot,
-                                           int32_t hvac_fixed_calibration_temperature);
+                                           int32_t hvac_fixed_calibration_temperature,
+                                           bool set_trv_interface = true);
 
 void updateDeviceTemperature(uint8_t channel_number_slot,
                              int32_t temperature);

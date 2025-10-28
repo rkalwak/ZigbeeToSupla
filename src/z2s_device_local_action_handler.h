@@ -10,16 +10,19 @@
 #include <supla/sensor/virtual_binary.h>
 #include <Z2S_control/Z2S_local_action_handlers.h>
 #include <Z2S_control/Z2S_remote_relay.h>
-
-#define LOCAL_CHANNEL_TYPE_ACTION_HANDLER 0x01
-#define LOCAL_CHANNEL_TYPE_VIRTUAL_RELAY  0x02
-#define LOCAL_CHANNEL_TYPE_VIRTUAL_BINARY 0x03
-
-#define LOCAL_CHANNEL_TYPE_REMOTE_RELAY   0x10
+#include <Z2S_sensor/Z2S_remote_thermometer.h>
 
 
-#define REMOTE_RELAY_ADDRESS_TYPE_IP4     0x01
-#define REMOTE_RELAY_ADDRESS_TYPE_MDNS    0x02
+#define LOCAL_CHANNEL_TYPE_ACTION_HANDLER       0x01
+#define LOCAL_CHANNEL_TYPE_VIRTUAL_RELAY        0x02
+#define LOCAL_CHANNEL_TYPE_VIRTUAL_BINARY       0x03
+
+#define LOCAL_CHANNEL_TYPE_REMOTE_RELAY         0x10
+#define LOCAL_CHANNEL_TYPE_REMOTE_THERMOMETER   0x11
+
+#define REMOTE_ADDRESS_TYPE_LOCAL               0x00
+#define REMOTE_ADDRESS_TYPE_IP4                 0x01
+#define REMOTE_ADDRESS_TYPE_MDNS                0x02
 
 static constexpr char *ACTION_HANDLERS_DEFAULT_NAMES[] PROGMEM = {
 
@@ -32,6 +35,13 @@ static constexpr char *ACTION_HANDLERS_DEFAULT_NAMES[] PROGMEM = {
   "NOR GATE",
   "AND GATE (3 INPUTS)",
   "OR GATE (3 INPUTS)"
+};
+
+static constexpr char* CONNECTED_THERMOMETERS_FUNCTION_NAMES[] PROGMEM = {
+
+"CONNECTED_THERMOMETERS_FNC_MINIMUM",
+"CONNECTED_THERMOMETERS_FNC_AVERAGE",
+"CONNECTED_THERMOMETERS_FNC_MAXIMUM"
 };
 
 const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot);

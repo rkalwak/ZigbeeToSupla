@@ -1,5 +1,9 @@
 #include "z2s_device_local_action_handler.h"
 
+NetworkClient Z2S_NetworkClient;
+
+IPAddress Z2S_IPAddress;
+
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
 const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot){
@@ -31,6 +35,12 @@ const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot){
     break;
 
 
+    case LOCAL_CHANNEL_TYPE_REMOTE_THERMOMETER:
+      
+      return "Local remote thermometer";
+    break;
+
+
     default:
 
     break;  
@@ -41,19 +51,23 @@ const char* getZ2SDeviceLocalActionHandlerTypeName(int16_t channel_number_slot){
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
-const char* getZ2SDeviceLocalActionHandlerLogicOperatorName(int16_t channel_number_slot) {
+const char* getZ2SDeviceLocalActionHandlerLogicOperatorName(
+  int16_t channel_number_slot) {
 
   switch (z2s_channels_table[channel_number_slot].local_channel_type) {
+
 
     case LOCAL_CHANNEL_TYPE_ACTION_HANDLER: {
       
       return 
-        ACTION_HANDLERS_DEFAULT_NAMES[z2s_channels_table[channel_number_slot].local_action_handler_data.logic_operator];
+        ACTION_HANDLERS_DEFAULT_NAMES[z2s_channels_table[channel_number_slot].
+        local_action_handler_data.logic_operator];
     } break;
 
     case LOCAL_CHANNEL_TYPE_VIRTUAL_RELAY:
     case LOCAL_CHANNEL_TYPE_VIRTUAL_BINARY:
     case LOCAL_CHANNEL_TYPE_REMOTE_RELAY:
+    case LOCAL_CHANNEL_TYPE_REMOTE_THERMOMETER:
       
       return "No special functions";
     break;
@@ -66,7 +80,8 @@ const char* getZ2SDeviceLocalActionHandlerLogicOperatorName(int16_t channel_numb
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
-void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
+void initZ2SDeviceLocalActionHandler(
+  int16_t channel_number_slot)  {
 
   switch (z2s_channels_table[channel_number_slot].
             local_channel_type) {
@@ -78,9 +93,10 @@ void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
       auto Supla_LocalActionHandlerWithTrigger = 
         new Supla::LocalActionHandlerWithTrigger(
           z2s_channels_table[channel_number_slot].
-            local_action_handler_data.logic_operator); 
+          local_action_handler_data.logic_operator); 
 
-      z2s_channels_table[channel_number_slot].local_action_handler_data.Supla_element =
+      z2s_channels_table[channel_number_slot].
+      local_action_handler_data.Supla_element =
         Supla_LocalActionHandlerWithTrigger;
 
       Supla_LocalActionHandlerWithTrigger->setPostponedTurnOnSecs(  
@@ -93,7 +109,8 @@ void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
       uint8_t Supla_channel = 
         z2s_channels_table[channel_number_slot].Supla_channel;
       
-      auto Supla_VirtualRelay = new Supla::Control::VirtualRelay(); 
+      auto Supla_VirtualRelay = 
+        new Supla::Control::VirtualRelay(); 
       
       Supla_VirtualRelay->getChannel()->setChannelNumber(Supla_channel);
     }
@@ -105,11 +122,35 @@ void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
       uint8_t Supla_channel = 
         z2s_channels_table[channel_number_slot].Supla_channel;
       
-      auto Supla_VirtualBinary = new Supla::Sensor::VirtualBinary(); 
+      auto Supla_VirtualBinary = 
+        new Supla::Sensor::VirtualBinary(); 
       
       Supla_VirtualBinary->getChannel()->setChannelNumber(Supla_channel);
     }
     break;
+
+
+    case LOCAL_CHANNEL_TYPE_REMOTE_THERMOMETER: {
+      
+      auto Supla_Z2S_RemoteThermometer = 
+        new Supla::Sensor::Z2S_RemoteThermometer();
+
+      Supla_Z2S_RemoteThermometer->getChannel()->setChannelNumber(
+          z2s_channels_table[channel_number_slot].Supla_channel);
+
+      uint8_t local_channel_func = 
+        z2s_channels_table[channel_number_slot].local_channel_func;
+
+      if (local_channel_func > 0)
+        Supla_Z2S_RemoteThermometer->setConnectedThermometersFunction(
+            local_channel_func);
+      
+      Supla_Z2S_RemoteThermometer->setTimeoutSecs(
+          z2s_channels_table[channel_number_slot].timeout_secs);
+      
+      Supla_Z2S_RemoteThermometer->setConnectedThermometerTimeoutSecs(
+          z2s_channels_table[channel_number_slot].refresh_secs);
+    } break; 
 
 
     case LOCAL_CHANNEL_TYPE_REMOTE_RELAY: {
@@ -118,30 +159,36 @@ void initZ2SDeviceLocalActionHandler(int16_t channel_number_slot)  {
         z2s_channels_table[channel_number_slot].Supla_channel;
       
       auto Supla_Z2S_RemoteRelay = 
-        new Supla::Control::Z2S_RemoteRelay(&TestClient, 0XFF); 
+        new Supla::Control::Z2S_RemoteRelay(&Z2S_NetworkClient, 0xFF); 
 
       Supla_Z2S_RemoteRelay->getChannel()->setChannelNumber(Supla_channel);
 
-      switch (z2s_channels_table[channel_number_slot].remote_relay_data.remote_address_type) {
+      uint8_t remote_address_type = 
+        Z2S_checkChannelFlags(channel_number_slot, 
+                              USER_DATA_FLAG_REMOTE_ADDRESS_TYPE_MDNS) ?
+        REMOTE_ADDRESS_TYPE_MDNS : REMOTE_ADDRESS_TYPE_IP4;
+      
+      switch (remote_address_type) {
 
-
-        case REMOTE_RELAY_ADDRESS_TYPE_IP4: {
+        case REMOTE_ADDRESS_TYPE_IP4: {
 
           Supla_Z2S_RemoteRelay->setRemoteGatewayIPAddress(
-            z2s_channels_table[channel_number_slot].remote_ip_address);
+            z2s_channels_table[channel_number_slot].\
+              remote_channel_data.remote_ip_address);
           
           Supla_Z2S_RemoteRelay->setRemoteGatewaySuplaChannel(
-            z2s_channels_table[channel_number_slot].remote_Supla_channel);
+            z2s_channels_table[channel_number_slot].Supla_remote_channel);
         } break;
 
 
-        case REMOTE_RELAY_ADDRESS_TYPE_MDNS: {
+        case REMOTE_ADDRESS_TYPE_MDNS: {
 
           Supla_Z2S_RemoteRelay->setRemoteGatewayMDNSName(
-            z2s_channels_table[channel_number_slot].remote_relay_data.mDNS_name);
+            z2s_channels_table[channel_number_slot].
+            remote_channel_data.mDNS_name);
 
           Supla_Z2S_RemoteRelay->setRemoteGatewaySuplaChannel(
-            z2s_channels_table[channel_number_slot].remote_relay_data.remote_Supla_channel_2);
+            z2s_channels_table[channel_number_slot].Supla_remote_channel);
         }
       }      
     }
@@ -247,13 +294,15 @@ bool addZ2SDeviceLocalActionHandler(uint8_t local_channel_type,
       Supla::Storage::ConfigInstance()->commit();
 
       auto Supla_Z2S_RemoteRelay = 
-        new Supla::Control::Z2S_RemoteRelay(&TestClient,
-          z2s_channels_table[first_free_slot].remote_Supla_channel); 
+        new Supla::Control::Z2S_RemoteRelay(&Z2S_NetworkClient,
+          z2s_channels_table[first_free_slot].Supla_remote_channel); 
 
       z2s_channels_table[first_free_slot].Supla_channel = 
         Supla_Z2S_RemoteRelay->getChannelNumber();
 
-      z2s_channels_table[first_free_slot].remote_relay_data.remote_address_type = 0;
+      Z2S_clearChannelFlags(first_free_slot, 
+                            USER_DATA_FLAG_REMOTE_ADDRESS_TYPE_MDNS,
+                            false);
 
       strcpy(z2s_channels_table[first_free_slot].
         Supla_channel_name, "LOCAL REMOTE RELAY");
@@ -262,6 +311,27 @@ bool addZ2SDeviceLocalActionHandler(uint8_t local_channel_type,
           z2s_channels_table[first_free_slot].Supla_channel_name);
 
       Supla_Z2S_RemoteRelay->setDefaultFunction(local_channel_func);
+    } break;
+
+
+    case LOCAL_CHANNEL_TYPE_REMOTE_THERMOMETER: {
+
+      auto Supla_Z2S_RemoteThermometer = 
+        new Supla::Sensor::Z2S_RemoteThermometer();
+
+      z2s_channels_table[first_free_slot].Supla_channel = 
+        Supla_Z2S_RemoteThermometer->getChannelNumber();
+
+      strcpy(z2s_channels_table[first_free_slot].
+        Supla_channel_name, "LOCAL REMOTE THERMOMETER");
+      
+      Supla_Z2S_RemoteThermometer->setInitialCaption(
+          z2s_channels_table[first_free_slot].Supla_channel_name);
+
+      Supla_Z2S_RemoteThermometer->setConnectedThermometersFunction(
+        CONNECTED_THERMOMETERS_FNC_AVG);
+      Supla_Z2S_RemoteThermometer->setConnectedThermometerTimeoutSecs(
+        MINUTES_30);
     } break;
 
 
