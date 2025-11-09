@@ -185,6 +185,7 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
   uint8_t running_state_dp_id            = 0x00;
   uint8_t running_state_value_idle       = 0xFF;
   uint8_t running_state_value_heat       = 0xFF;
+  bool    onOffOnly                      = true;
 
   uint8_t temperature_calibration_dp_id  = 0x00;
 
@@ -206,10 +207,13 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
 
   uint8_t temperature_histeresis_dp_id   = 0x00;
 
+  uint8_t pi_heating_demand_dp_id        = 0x00;
+
   int32_t local_temperature_factor       = 1;
   int32_t target_heatsetpoint_factor     = 1;
   int32_t temperature_calibration_factor = 1;
   int32_t temperature_histeresis_factor  = 1;
+
 
   int16_t channel_number_slot_1 = Z2S_findChannelNumberSlot(z2s_channels_table[channel_number_slot].ieee_addr, //legacy compatibility
                                                             z2s_channels_table[channel_number_slot].endpoint, 
@@ -257,6 +261,10 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
       running_state_value_heat=  
         ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_running_state_dp_value_heat;
 
+      if ((running_state_value_idle == 0) &&
+          (running_state_value_heat == 100))
+        onOffOnly = false; //valve 0-100%
+
       temperature_calibration_dp_id  =  
         ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_temperature_calibration_dp_id;
 
@@ -292,6 +300,9 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
         ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_temperature_histeresis_dp_id;
       temperature_histeresis_factor  =
         ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_temperature_histeresis_factor;
+
+      pi_heating_demand_dp_id   =              
+        ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_pi_heating_demand_dp_id;
     } else
       log_e("ts0601_command_sets_table internal mismatch! %02x <> %02x", 
             ts0601_command_sets_table[trv_commands_set].ts0601_cmd_set_id,
@@ -392,7 +403,8 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
     }
   }
 
-  if (running_state_dp_id) {
+  if ((running_state_dp_id) &&
+      (!pi_heating_demand_dp_id)) {
     
     Tuya_read_dp_result = Z2S_readTuyaDPvalue(running_state_dp_id, 
                                               payload_size, 
@@ -400,14 +412,32 @@ void processTuyaHvacDataReport(int16_t channel_number_slot,
     
     if (Tuya_read_dp_result.is_success) {
       
-      if (Tuya_read_dp_result.dp_value == running_state_value_idle)
-        msgZ2SDeviceHvac(channel_number_slot_2, 
-                        TRV_RUNNING_STATE_MSG, 
-                        0);
+      if (onOffOnly) {
+        if (Tuya_read_dp_result.dp_value == running_state_value_idle)
+          msgZ2SDeviceHvac(channel_number_slot_2, 
+                          TRV_RUNNING_STATE_MSG, 0);
+        else
+          msgZ2SDeviceHvac(channel_number_slot_2, 
+                          TRV_RUNNING_STATE_MSG, 1);
+      }
       else
         msgZ2SDeviceHvac(channel_number_slot_2, 
                          TRV_RUNNING_STATE_MSG, 
-                         1);
+                         Tuya_read_dp_result.dp_value);
+    }
+  }
+
+  if (pi_heating_demand_dp_id) {
+    
+    Tuya_read_dp_result = Z2S_readTuyaDPvalue(pi_heating_demand_dp_id, 
+                                              payload_size, 
+                                              payload);
+    
+    if (Tuya_read_dp_result.is_success) {
+      
+      msgZ2SDeviceHvac(channel_number_slot_2, 
+                       TRV_RUNNING_STATE_MSG, 
+                       Tuya_read_dp_result.dp_value);
     }
   }
 
@@ -1232,6 +1262,15 @@ void processTuyaPresenceSensorDataReport(
 
       presence_value_on = 0x00;
     } break;
+
+    case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO: {
+
+      presence_dp_id = TUYA_PRESENCE_SENSOR_PRESENCE_DP;
+      motion_state_dp_id = TUYA_PRESENCE_SENSOR_NEO_HUMAN_MOTION_STATE_DP;
+      distance_dp_id = TUYA_PRESENCE_SENSOR_NEO_CURRENT_DISTANCE_DP;
+
+      presence_value_on = 0x00;
+    } break;
   }
   
   if (presence_dp_id) {
@@ -2039,6 +2078,7 @@ void processTuyaDataReport(esp_zb_ieee_addr_t ieee_addr,
     case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_5:
     case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_4IN1:
     case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_RELAY:
+    case Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO:
 
       processTuyaPresenceSensorDataReport(
         channel_number_slot, 

@@ -318,7 +318,10 @@ static constexpr zigbee_manufacturer_code_t zigbee_manufacturer_codes[] PROGMEM 
 	 	 .manufacturer_name = "SHENZHEN_COOLKIT_TECHNOLOGY_CO_LTD" },
 
 		{ .manufacturer_code = BOSCH_MANUFACTURER_CODE,										
-	 	 .manufacturer_name = "BOSCH" }
+	 	 .manufacturer_name = "BOSCH" },
+
+		{ .manufacturer_code = EUROTRONIC_MANUFACTURER_CODE,										
+	 	 .manufacturer_name = "EUROTRONIC" }
 	};
 
 static constexpr Supla_action_type_t Supla_actions [] PROGMEM = {
@@ -712,6 +715,12 @@ static constexpr zigbee_attribute_t zigbee_attributes[] PROGMEM = {
 	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT_UI_CONFIG, 
 		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_8BIT_ENUM,
 		.zigbee_attribute_name = "TEMPERATURE UNITS"
+	},
+	{
+		.zigbee_attribute_id  = 0x0107, 
+	  .zigbee_attribute_cluster_id = ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT_UI_CONFIG, 
+		.zigbee_attribute_datatype_id = ESP_ZB_ZCL_ATTR_TYPE_U8,
+		.zigbee_attribute_name = "MEASUREMENT INTERVAL(3-30 S)"
 	},
   //COLOR CONTROL
   {
@@ -1843,7 +1852,33 @@ static const Tuya_datapoint_desc_t Tuya_datapoints[] PROGMEM = {
     .Tuya_datapoint_name 	 			= "Backlight",
     .Tuya_datapoint_description = "Enter numeric value:<br>"
 																	"0 => set backlight OFF<br>"
-																	"1 => set backlight ON" }
+																	"1 => set backlight ON" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO,
+    .Tuya_datapoint_id 		 			= TUYA_PRESENCE_SENSOR_NEO_DEPARTURE_DELAY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Presence keep time",
+    .Tuya_datapoint_description = "Enter numeric value: 3 - 600 [s]" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO,
+    .Tuya_datapoint_id 		 			= TUYA_PRESENCE_SENSOR_NEO_RADAR_RANGE_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Motion range detection",
+    .Tuya_datapoint_description = "Enter numeric value: 150 - 600 [cm]<br>"
+																	" with step 75 cm" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO,
+    .Tuya_datapoint_id 		 			= TUYA_PRESENCE_SENSOR_NEO_RADAR_SENSITIVITY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Motion detection sensitivity",
+    .Tuya_datapoint_description = "Enter numeric value: 0 - 7" },
+
+	{ .z2s_device_desc_id 	 			= Z2S_DEVICE_DESC_TUYA_PRESENCE_SENSOR_NEO,
+    .Tuya_datapoint_id 		 			= TUYA_PRESENCE_SENSOR_NEO_PRESENCE_SENSITIVITY_DP,
+    .Tuya_datapoint_type 				= TUYA_DP_TYPE_VALUE,
+    .Tuya_datapoint_name 	 			= "Motionless detection sensitivity",
+    .Tuya_datapoint_description = "Enter numeric value: 0 - 7" },
+	
 };
 
 #endif //WEB_GUI_TEMPLATES_H_

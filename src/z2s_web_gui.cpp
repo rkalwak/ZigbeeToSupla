@@ -24,6 +24,8 @@ ESPAsyncHTTPUpdateServer updateServer;
 
 extern ZigbeeGateway zbGateway;
 
+extern bool force_leave_global_flag;
+
 extern uint8_t  _enable_gui_on_start;
 extern uint8_t	_force_config_on_start;
 extern uint32_t _gui_start_delay;
@@ -53,6 +55,7 @@ uint16_t save_button;
 uint16_t save_label;
 
 uint16_t pairing_mode_switcher = 0xFFFF;
+uint16_t force_leave_switcher;
 uint16_t zigbee_tx_power_text;
 //uint16_t zigbee_get_tx_power_button;
 //uint16_t zigbee_set_tx_power_button;
@@ -316,13 +319,14 @@ volatile ActionGUIState previous_action_gui_state = VIEW_ACTION;
 #define GUI_CB_RESTART_FLAG												0x1001
 
 #define GUI_CB_PAIRING_FLAG												0x2001
-#define GUI_CB_FACTORY_FLAG												0x2002
-#define GUI_CB_GET_TX_FLAG												0x2003
-#define GUI_CB_SET_TX_FLAG												0x2004
-#define GUI_CB_GET_PC_FLAG												0x2005
-#define GUI_CB_SET_PC_FLAG												0x2006
-#define GUI_CB_SET_INSTALLATION_CODE_FLAG					0x2007
-#define GUI_CB_CLEAR_INSTALLATION_CODES_FLAG			0x2008
+#define GUI_CB_FORCE_LEAVE_FLAG										0x2002
+#define GUI_CB_FACTORY_FLAG												0x2003
+#define GUI_CB_GET_TX_FLAG												0x2004
+#define GUI_CB_SET_TX_FLAG												0x2005
+#define GUI_CB_GET_PC_FLAG												0x2006
+#define GUI_CB_SET_PC_FLAG												0x2007
+#define GUI_CB_SET_INSTALLATION_CODE_FLAG					0x2008
+#define GUI_CB_CLEAR_INSTALLATION_CODES_FLAG			0x2009
 
 #define GUI_CB_BATTERY_VOLTAGE_MIN_FLAG						0x3000
 #define GUI_CB_BATTERY_VOLTAGE_MAX_FLAG						0x3001
@@ -1080,6 +1084,32 @@ void buildZigbeeTabGUI() {
 										 pairingSwitcherCallback,
 										 (void*)GUI_CB_PAIRING_FLAG);
 
+	working_str = PSTR("enable/disable pairing mode (180 s)");
+	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, 
+																				 PSTR(empty_str), 
+																				 working_str, 
+																				 Control::Color::None, 
+																				 pairing_mode_switcher), 
+												PSTR(clearLabelStyle));
+
+	working_str = empty_str;
+	force_leave_switcher = 
+		ESPUI.addControl(Control::Type::Switcher, 
+										 PSTR(""), 
+									   working_str, 
+										 Control::Color::Emerald, 
+										 pairing_mode_switcher, 
+										 pairingSwitcherCallback,
+										 (void*)GUI_CB_FORCE_LEAVE_FLAG);
+	working_str = PSTR("force joined device to leave network and perform full join");
+	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, 
+																				 PSTR(empty_str), 
+																				 working_str, 
+																				 Control::Color::None, 
+																				 pairing_mode_switcher), 
+												PSTR(clearLabelStyle));
+
+
 	working_str = zigbee_tx_power_text_str;
 	zigbee_tx_power_text = 
 		ESPUI.addControl(Control::Type::Text, 
@@ -1217,6 +1247,8 @@ void buildZigbeeTabGUI() {
 
 	ESPUI.updateNumber(pairing_mode_switcher, 
 										 Zigbee.isNetworkOpen() ? 1 : 0);
+	ESPUI.updateNumber(force_leave_switcher, 
+										 force_leave_global_flag ? 1 : 0);
 }
 
 void rebuildDevicesSelector() {
@@ -1350,84 +1382,199 @@ void buildDevicesTabGUI() {
 	rssilabel = ESPUI.addControl(Control::Type::Label, 
 															 PSTR(empty_str), 
 															 three_dots_str, 
-															 Control::Color::Emerald, getswbuild_button);
+															 Control::Color::Emerald, 
+															 getswbuild_button);
 	
-	battery_voltage_min_number = ESPUI.addControl(Control::Type::Number, PSTR("Battery panel"), zero_str, 
-																								Control::Color::Emerald, devicestab, 
-																								generalMinMaxCallback, (void*)255);
-	ESPUI.addControl(Control::Type::Min, PSTR(empty_str), zero_str, Control::Color::None, battery_voltage_min_number);
+	battery_voltage_min_number = 
+		ESPUI.addControl(Control::Type::Number, 
+										 PSTR("Battery panel"), 
+										 zero_str, 
+										 Control::Color::Emerald, 
+										 devicestab, 
+										 generalMinMaxCallback, 
+										 (void*)255);
+
+	ESPUI.addControl(
+		Control::Type::Min, 
+		PSTR(empty_str), 
+		zero_str, 
+		Control::Color::None, 
+		battery_voltage_min_number);
+
 	working_str = 255;
-	ESPUI.addControl(Control::Type::Max, PSTR(empty_str), working_str, Control::Color::None, battery_voltage_min_number);
-	ESPUI.setElementStyle(battery_voltage_min_number, "margin: 0% 5%;");
+	ESPUI.addControl(Control::Type::Max, 
+									 PSTR(empty_str), 
+									 working_str, 
+									 Control::Color::None, 
+									 battery_voltage_min_number);
+
+	ESPUI.setElementStyle(battery_voltage_min_number, 
+												"color:black; margin: 0% 5%;");
+
 	working_str = PSTR("Save");
-	battery_voltage_min_save_button = ESPUI.addControl(Control::Type::Button, PSTR(empty_str), working_str, Control::Color::Emerald, 
-																										battery_voltage_min_number, batteryCallback, (void*)GUI_CB_BATTERY_VOLTAGE_MIN_FLAG);
+	battery_voltage_min_save_button = 
+		ESPUI.addControl(Control::Type::Button, 
+										 PSTR(empty_str), 
+										 working_str, 
+										 Control::Color::Emerald, 
+										 battery_voltage_min_number, 
+										 batteryCallback, 
+										 (void*)GUI_CB_BATTERY_VOLTAGE_MIN_FLAG);
 
 	
-	battery_voltage_max_number = ESPUI.addControl(Control::Type::Number, PSTR(empty_str), zero_str, 
-																								Control::Color::Emerald, battery_voltage_min_number, generalMinMaxCallback, (void*)255);
-	ESPUI.addControl(Control::Type::Min, PSTR(empty_str), zero_str, Control::Color::None, battery_voltage_max_number);
-	ESPUI.setElementStyle(battery_voltage_max_number, "margin: 0% 5%;");
+	battery_voltage_max_number = 
+		ESPUI.addControl(Control::Type::Number, 
+										 PSTR(empty_str), 
+										 zero_str, 
+										 Control::Color::Emerald, 
+										 battery_voltage_min_number, 
+										 generalMinMaxCallback, 
+										 (void*)255);
+
+	ESPUI.addControl(Control::Type::Min, 
+									 PSTR(empty_str), 
+									 zero_str, 
+									 Control::Color::None, 
+									 battery_voltage_max_number);
+
+	ESPUI.setElementStyle(battery_voltage_max_number, 
+												"color:black; margin: 0% 5%;");
 
 	working_str = 255;
-	ESPUI.addControl(Control::Type::Max, PSTR(empty_str), working_str, Control::Color::None, battery_voltage_max_number);
+	ESPUI.addControl(Control::Type::Max, 
+									 PSTR(empty_str), 
+									 working_str, 
+									 Control::Color::None, 
+									 battery_voltage_max_number);
 
 	working_str = PSTR("Save");
-	battery_voltage_max_save_button = ESPUI.addControl(Control::Type::Button, PSTR(empty_str), working_str, Control::Color::Emerald, 
-																										 battery_voltage_min_number, batteryCallback, (void*)GUI_CB_BATTERY_VOLTAGE_MAX_FLAG);
+	battery_voltage_max_save_button = 
+		ESPUI.addControl(Control::Type::Button, 
+										 PSTR(empty_str), 
+										 working_str, 
+										 Control::Color::Emerald, 
+										 battery_voltage_min_number, 
+										 batteryCallback, 
+										 (void*)GUI_CB_BATTERY_VOLTAGE_MAX_FLAG);
 
 	working_str = "";
-	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, PSTR(empty_str), working_str,
-																				 Control::Color::None, battery_voltage_min_number), PSTR(clearLabelStyle));
+	ESPUI.setElementStyle(
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR(empty_str), 
+										 working_str,
+										 Control::Color::None, 
+										 battery_voltage_min_number), 
+		PSTR(clearLabelStyle));
 	
 	working_str = PSTR("&#10023; V(min) x10, ie. 28 = 2,8V &#10023;");
-	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, PSTR(empty_str), working_str,
-																				 Control::Color::None, battery_voltage_min_number), PSTR(clearFlagsLabelStyle));
+	ESPUI.setElementStyle(
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR(empty_str), 
+										 working_str,
+										 Control::Color::None, 
+										 battery_voltage_min_number), 
+		PSTR(clearFlagsLabelStyle));
 	
 	working_str = PSTR("&#10023; V(max) x10, ie. 33 = 3,3V &#10023;");
-	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, PSTR(empty_str), working_str,
-																				 Control::Color::None, battery_voltage_min_number), PSTR(clearFlagsLabelStyle));
+	ESPUI.setElementStyle(
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR(empty_str), 
+										 working_str,
+										 Control::Color::None, 
+										 battery_voltage_min_number), 
+		PSTR(clearFlagsLabelStyle));
 	
-	disable_battery_percentage_msg_switcher = ESPUI.addControl(Control::Type::Switcher, PSTR(empty_str), zero_str, 
-																														 Control::Color::Emerald, 
-																													   battery_voltage_min_number, batterySwitcherCallback, 
-																													   (void*)GUI_CB_DISABLE_PERCENTAGE_MSG_FLAG);
-	working_str = PSTR("&#10023; <i>DISABLE BATTERY PERCENTAGE MESSAGES</i> &#10023;");
-	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, PSTR(empty_str), working_str,
-																				 Control::Color::None, battery_voltage_min_number), 
-																				 PSTR(clearLabelStyle));							
+	disable_battery_percentage_msg_switcher = 
+		ESPUI.addControl(Control::Type::Switcher, 
+										 PSTR(empty_str), 
+										 zero_str, 
+										 Control::Color::Emerald, 
+										 battery_voltage_min_number, 
+										 batterySwitcherCallback, 
+										 (void*)GUI_CB_DISABLE_PERCENTAGE_MSG_FLAG);
 
-	disable_battery_voltage_msg_switcher = ESPUI.addControl(Control::Type::Switcher, PSTR(empty_str), zero_str, 
-																													Control::Color::Emerald, 
-																											    battery_voltage_min_number, batterySwitcherCallback, 
-																												  (void*)GUI_CB_DISABLE_VOLTAGE_MSG_FLAG);
-	working_str = PSTR("&#10023; <i>DISABLE BATTERY VOLTAGE MESSAGES</i> &#10023;");
-	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, PSTR(empty_str), working_str,
-																				 Control::Color::None, battery_voltage_min_number), 
-																				 PSTR(clearLabelStyle));							
+	working_str = 
+		PSTR("&#10023; <i>DISABLE BATTERY PERCENTAGE MESSAGES</i> &#10023;");
+
+	ESPUI.setElementStyle(
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR(empty_str), 
+										 working_str,
+										 Control::Color::None, 
+										 battery_voltage_min_number), 
+		PSTR(clearLabelStyle));							
+
+	disable_battery_voltage_msg_switcher = 
+		ESPUI.addControl(Control::Type::Switcher, 
+										 PSTR(empty_str), 
+										 zero_str, 
+										 Control::Color::Emerald, 
+										 battery_voltage_min_number, 
+										 batterySwitcherCallback, 
+										 (void*)GUI_CB_DISABLE_VOLTAGE_MSG_FLAG);
+
+	working_str = 
+		PSTR("&#10023; <i>DISABLE BATTERY VOLTAGE MESSAGES</i> &#10023;");
+
+	ESPUI.setElementStyle(
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR(empty_str), 
+										 working_str,
+										 Control::Color::None, 
+										 battery_voltage_min_number), 
+		PSTR(clearLabelStyle));							
 
 
-	ESPUI.addControl(Control::Type::Separator, PSTR(empty_str), working_str, Control::Color::None, devicestab);
+	ESPUI.addControl(Control::Type::Separator, 
+									 PSTR(empty_str), 
+									 working_str, 
+									 Control::Color::None, 
+									 devicestab);
 
 	working_str = PSTR("Remove device!");
-	remove_device_button = ESPUI.addControl(Control::Type::Button, PSTR("Remove Zigbee device(s)"), working_str, Control::Color::Alizarin, 
-																					devicestab, removeDeviceCallback, (void*)GUI_CB_SINGLE_FLAG);
+	remove_device_button = 
+		ESPUI.addControl(Control::Type::Button, 
+										 PSTR("Remove Zigbee device(s)"), 
+										 working_str, 
+										 Control::Color::Alizarin, 
+										 devicestab, 
+										 removeDeviceCallback, 
+										 (void*)GUI_CB_SINGLE_FLAG);
+
 	working_str = PSTR("Remove device with channels!");
 	remove_device_and_channels_button = 
-		ESPUI.addControl(Control::Type::Button, PSTR(empty_str), working_str, Control::Color::Alizarin, remove_device_button, 
-										 removeDeviceCallback, (void*)GUI_CB_WITH_CHANNELS_FLAG); 
+		ESPUI.addControl(Control::Type::Button, 
+										 PSTR(empty_str), 
+										 working_str, 
+										 Control::Color::Alizarin, 
+										 remove_device_button, 
+										 removeDeviceCallback, 
+										 (void*)GUI_CB_WITH_CHANNELS_FLAG);
+
 	working_str = PSTR("Remove all devices!");
 	remove_all_devices_button = 
-		ESPUI.addControl(Control::Type::Button, PSTR(empty_str), working_str, Control::Color::Alizarin, remove_device_button, 
-										 removeDeviceCallback, (void*)GUI_CB_ALL_FLAG); 
-	device_status_label = ESPUI.addControl(Control::Type::Label, PSTR("Status"), three_dots_str, Control::Color::Alizarin, remove_device_button);
+		ESPUI.addControl(Control::Type::Button, 
+										 PSTR(empty_str), 
+										 working_str, 
+										 Control::Color::Alizarin, 
+										 remove_device_button, 
+										 removeDeviceCallback, 
+										 (void*)GUI_CB_ALL_FLAG); 
+
+	device_status_label = 
+		ESPUI.addControl(Control::Type::Label, 
+										 PSTR("Status"), 
+										 three_dots_str, 
+										 Control::Color::Alizarin, 
+										 remove_device_button);
 
 	enableDeviceControls(false);
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------*/
 
-void rebuildChannelsSelector(bool rebuild_channels_list, uint16_t channelstab = 0xFFFF) {
+void rebuildChannelsSelector(bool rebuild_channels_list, 
+														 uint16_t channelstab = 0xFFFF) {
 
 	if (rebuild_channels_list) {
 
@@ -1469,20 +1616,25 @@ void rebuildChannelsSelector(bool rebuild_channels_list, uint16_t channelstab = 
 	channel_selector_first_option_id 	= 0xFFFF;
 	channel_selector_last_option_id 	= 0xFFFF;
 
-	for (uint8_t channels_counter = 0; channels_counter < Z2S_CHANNELS_MAX_NUMBER; channels_counter++) {
+	for (uint8_t channels_counter = 0; 
+			 channels_counter < Z2S_CHANNELS_MAX_NUMBER; 
+			 channels_counter++) {
+
     if (z2s_channels_table[channels_counter].valid_record) {
       
 			working_str = channels_counter;
 			//z2s_channels_table[channels_counter].gui_control_id  = 
 			current_option_id =
-				ESPUI.addControl(Control::Type::Option, 
-												 z2s_channels_table[channels_counter].Supla_channel_name, 
-												 working_str, 
-												 Control::Color::None, 
-												 channel_selector);
+				ESPUI.addControl(
+					Control::Type::Option, 
+					z2s_channels_table[channels_counter].Supla_channel_name, 
+					working_str, 
+					Control::Color::None, 
+					channel_selector);
 			
 			if (channel_selector_first_option_id == 0xFFFF)
-				channel_selector_first_option_id = current_option_id;
+				channel_selector_first_option_id = 
+					current_option_id;
 			
 			log_i("\n\rchannels_counter %u\n\rcurrent_option_id %u"
 						"\n\r\channel_selector_first_option_id %u",
@@ -1490,7 +1642,8 @@ void rebuildChannelsSelector(bool rebuild_channels_list, uint16_t channelstab = 
 						current_option_id,
 						channel_selector_first_option_id);
 
-			z2s_channels_table[channels_counter].gui_control_id = current_option_id; //for channel name update
+			z2s_channels_table[channels_counter].gui_control_id = 
+				current_option_id; //for channel name update
 		}
 	}
 	
@@ -1924,7 +2077,7 @@ void buildChannelsTabGUI() {
 	working_str = PSTR("&#10023; refresh(s) [ElectricityMeter] &#10023;<br>"
 										 "&#10023; autoset(s) [VirtualBinary] &#10023<br>;"
 										 "&#10023; debounce(ms) [VirtualSceneSwitch] &#10023; <br>"
-										 "&#10023; connected thermometer timeout(s) &#10023;");
+										 "&#10023; thermometers timeout(s) [Remote Thermometer] &#10023;");
 	ESPUI.setElementStyle(ESPUI.addControl(Control::Type::Label, 
 																				 PSTR(empty_str), 
 																				 working_str, 
@@ -4571,7 +4724,8 @@ void onZigbeeTabCallback(Control *sender, int type) {
 	Serial.print("' = ");
 	Serial.println(sender->value);
 
-	ESPUI.updateNumber(pairing_mode_switcher, Zigbee.isNetworkOpen() ? 1 : 0);	
+	ESPUI.updateNumber(pairing_mode_switcher, Zigbee.isNetworkOpen() ? 1 : 0);
+	ESPUI.updateNumber(force_leave_switcher, force_leave_global_flag ? 1 : 0);	
 }
 
 void onChannelsTabCallback(Control *sender, int type) {
@@ -5137,6 +5291,14 @@ void updateChannelInfoLabel(uint8_t label_number) {
 				working_str = z2s_channels_table[channel_slot].local_channel_func;
 				ESPUI.updateSelect(channel_local_function, working_str);
 
+				ESPUI.updateNumber(
+					timeout_number, 
+					z2s_channels_table[channel_slot].timeout_secs);
+
+				ESPUI.updateNumber(
+					refresh_number, 
+					z2s_channels_table[channel_slot].refresh_secs);
+
 				/*enableChannelParams(3);
 				fillRemoteAddressData(channel_slot);
 
@@ -5155,35 +5317,31 @@ void updateChannelInfoLabel(uint8_t label_number) {
 			enableChannelTimings(6); //timeout+debounce
 			ESPUI.updateNumber(
 				timeout_number, 
-				z2s_channels_table[channel_slot].timeout_secs
-			);
+				z2s_channels_table[channel_slot].timeout_secs);
 
 			ESPUI.updateNumber(
 				refresh_number, 
-				z2s_channels_table[channel_slot].refresh_secs
-			);
+				z2s_channels_table[channel_slot].refresh_secs);
 	
 			enableChannelFlags(5);
 			
 			ESPUI.updateNumber(
 				disable_channel_notifications_switcher, 
 				(z2s_channels_table[channel_slot].user_data_flags & 
-				USER_DATA_FLAG_DISABLE_NOTIFICATIONS) ? 1 : 0
-			);
+				USER_DATA_FLAG_DISABLE_NOTIFICATIONS) ? 1 : 0);
 
 			ESPUI.updateNumber(
 				set_sorwns_on_start_switcher, 
 				(z2s_channels_table[channel_slot].user_data_flags & 
-				USER_DATA_FLAG_SET_SORWNS_ON_START) ? 1 : 0
-			);
+				USER_DATA_FLAG_SET_SORWNS_ON_START) ? 1 : 0);
 
 			enableChannelParams(1);
 
 			ESPUI.updateNumber(
 				param_1_number, 
 				z2s_channels_table[channel_slot].\
-				rain_intensity_treshold
-			);
+				rain_intensity_treshold);
+
 			working_str = PSTR("&#10023; Virtual Binary custom param<br>"
 												 "enter rain intensity threshold<br>"
 												 "currently unused for other sensors &#10023;");
@@ -6104,6 +6262,15 @@ void pairingSwitcherCallback(Control *sender, int type, void *param){
     if (Zigbee.isNetworkOpen())
 			Zigbee.openNetwork(0);//ESPUI.updateNumber(pairing_mode_switcher, 1);
 			}
+		} break;
+
+
+		case GUI_CB_FORCE_LEAVE_FLAG : {		
+
+			if (type == S_ACTIVE) 
+				force_leave_global_flag = true; 
+			else 
+				force_leave_global_flag = false;
 		} break;
 	}
 }
